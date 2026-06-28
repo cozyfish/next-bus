@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Dashboard</title>
+    <style>
+        /* 基礎設置：清除預設邊距，隱藏滾動條，確保 100vw/100vh */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang HK", "Microsoft JhengHei", sans-serif;
+            box-sizing: border-box;
+        }
+
+        /* 2x2 網格佈局 */
+        #dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 每個區域的共用樣式 */
+        .panel {
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.1); /* 輕微的邊線區隔 */
+            position: relative;
+        }
+
+        /* ================= 區域 1：時鐘 ================= */
+        #clock-panel {
+            align-items: flex-start;
+        }
+        .time {
+            font-size: 8vw;
+            font-weight: bold;
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+        .date {
+            font-size: 2.5vw;
+            color: #AAAAAA;
+        }
+
+        /* ================= 區域 2：巴士到站 ================= */
+        #bus-panel {
+            justify-content: flex-start;
+        }
+        .panel-title {
+            font-size: 2.5vw;
+            margin-bottom: 2rem;
+            color: #FFCC00; /* 九巴標誌性顏色點綴 */
+            font-weight: bold;
+        }
+        .route-group {
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+        .route-name {
+            font-size: 3vw;
+            font-weight: bold;
+            width: 120px;
+            color: #FFFFFF;
+        }
+        .eta-times {
+            display: flex;
+            gap: 1.5rem;
+        }
+        .eta-time {
+            font-size: 2.5vw;
+            background: #222;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        /* ================= 區域 3：天氣 ================= */
+        #weather-panel {
+            align-items: flex-end;
+            text-align: right;
+        }
+        .temp-display {
+            font-size: 6vw;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+        .humidity-display {
+            font-size: 2.5vw;
+            color: #4DB8FF;
+            margin-top: 1rem;
+        }
+        .location-label {
+            font-size: 2vw;
+            color: #AAAAAA;
+            margin-top: 0.5rem;
+        }
+
+        /* ================= 區域 4：相片輪播 ================= */
+        #photo-panel {
+            padding: 0;
+            overflow: hidden;
+            border: none;
+        }
+        .carousel-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 2s ease-in-out; /* 平滑淡入淡出 */
+        }
+        .carousel-img.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="dashboard">
+        <div id="clock-panel" class="panel">
+            <div class="time" id="time-display">--:--:--</div>
+            <div class="date" id="date-display">----年--月--日 星期-</div>
+        </div>
+
+        <div id="weather-panel" class="panel">
+            <div class="panel-title" style="margin-bottom: 1rem;">天文台實時天氣</div>
+            <div class="temp-display" id="temp-display">--°C</div>
+            <div class="humidity-display" id="humidity-display">相對濕度: --%</div>
+            <div class="location-label">沙田區</div>
+        </div>
+
+        <div id="bus-panel" class="panel">
+            <div class="panel-title">沙田博康邨 巴士到站時間</div>
+            <div id="bus-data-container">
+                <div style="font-size: 2vw; color: #888;">載入中...</div>
+            </div>
+        </div>
+
+        <div id="photo-panel" class="panel">
+            </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 時鐘與日期模組 (每秒更新)
+        // ==========================================
+        function updateClock() {
+            const now = new Date();
+            
+            // 時間 (HH:MM:SS) 24小時制
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('time-display').innerText = `${hh}:${mm}:${ss}`;
+
+            // 日期
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            document.getElementById('date-display').innerText = `${year}年${month}月${date}日 星期${weekday}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock(); // 初始化呼叫
+
+
+        // ==========================================
+        // 2. 巴士到站時間模組 (每 60 秒更新)
+        // ==========================================
+        // 註：這是一個沙田區的測試 Stop ID。
+        // 如要換成你樓下的準確分站，請先透過 https://data.etabus.gov.hk/v1/transport/kmb/stop 搜尋你的站名取得正確 Stop ID。
+        const KMB_STOP_ID = '95A40CC74EC5355A'; 
+        const TARGET_ROUTES = ['47X', '80X', '287X'];
+
+        async function fetchBusETA() {
+            try {
+                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${KMB_STOP_ID}`);
+                const json = await res.json();
+                
+                // 過濾目標路線且 ETA 不為空的數據
+                const validETAs = json.data.filter(item => 
+                    TARGET_ROUTES.includes(item.route) && item.eta !== null
+                );
+
+                // 按路線分組
+                const routeData = {};
+                TARGET_ROUTES.forEach(route => routeData[route] = []);
+                
+                validETAs.forEach(item => {
+                    const etaDate = new Date(item.eta);
+                    const hh = String(etaDate.getHours()).padStart(2, '0');
+                    const mm = String(etaDate.getMinutes()).padStart(2, '0');
+                    routeData[item.route].push(`${hh}:${mm}`);
+                });
+
+                // 更新 DOM
+                const container = document.getElementById('bus-data-container');
+                container.innerHTML = ''; 
+
+                TARGET_ROUTES.forEach(route => {
+                    // 只取最近 3 班車，並去除重複時間 (以防API返回相同時間)
+                    const uniqueETAs = [...new Set(routeData[route])].slice(0, 3);
+                    
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'route-group';
+                    
+                    const routeNameDiv = document.createElement('div');
+                    routeNameDiv.className = 'route-name';
+                    routeNameDiv.innerText = route;
+                    
+                    const timesDiv = document.createElement('div');
+                    timesDiv.className = 'eta-times';
+                    
+                    if (uniqueETAs.length === 0) {
+                        timesDiv.innerHTML = '<span class="eta-time" style="color:#888;">暫無班次</span>';
+                    } else {
+                        uniqueETAs.forEach(time => {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'eta-time';
+                            timeSpan.innerText = time;
+                            timesDiv.appendChild(timeSpan);
+                        });
+                    }
+
+                    groupDiv.appendChild(routeNameDiv);
+                    groupDiv.appendChild(timesDiv);
+                    container.appendChild(groupDiv);
+                });
+
+            } catch (error) {
+                console.error("Fetch Bus Data Error:", error);
+            }
+        }
+        setInterval(fetchBusETA, 60000);
+        fetchBusETA();
+
+
+        // ==========================================
+        // 3. 香港天文台天氣模組 (每 5 分鐘更新)
+        // ==========================================
+        async function fetchWeather() {
+            try {
+                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
+                const json = await res.json();
+                
+                // 找尋「沙田」區的溫度，若無則 fallback 到全港平均(index 0)
+                const shaTinTemp = json.temperature.data.find(d => d.place === '沙田');
+                const tempValue = shaTinTemp ? shaTinTemp.value : json.temperature.data[0].value;
+                
+                // 濕度通常全港統一提供一個數值
+                const humidityValue = json.humidity.data[0].value;
+
+                document.getElementById('temp-display').innerText = `${tempValue}°C`;
+                document.getElementById('humidity-display').innerText = `相對濕度: ${humidityValue}%`;
+
+            } catch (error) {
+                console.error("Fetch Weather Data Error:", error);
+            }
+        }
+        setInterval(fetchWeather, 5 * 60 * 1000); // 5分鐘
+        fetchWeather();
+
+
+        // ==========================================
+        // 4. 狗狗相片輪播模組 (每 15 秒切換)
+        // ==========================================
+        // 使用免版權的高畫質狗相片
+        const dogImages = [
+            "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
+            "https://images.dog.ceo/breeds/husky/n02110185_10047.jpg",
+            "https://images.dog.ceo/breeds/shiba/shiba-13.jpg",
+            "https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg"
+        ];
+
+        let currentImageIndex = 0;
+
+        function initCarousel() {
+            const panel = document.getElementById('photo-panel');
+            dogImages.forEach((url, index) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'carousel-img';
+                if (index === 0) img.classList.add('active'); // 第一張預設顯示
+                panel.appendChild(img);
+            });
+
+            setInterval(() => {
+                const imgs = panel.getElementsByTagName('img');
+                // 移除當前圖片的 active class
+                imgs[currentImageIndex].classList.remove('active');
+                
+                // 計算下一張圖片的 index
+                currentImageIndex = (currentImageIndex + 1) % dogImages.length;
+                
+                // 為下一張圖片加入 active class 觸發 CSS 淡入
+                imgs[currentImageIndex].classList.add('active');
+            }, 15000); // 15秒切換
+        }
+        initCarousel();
+    </script>
+</body>
+</html>
