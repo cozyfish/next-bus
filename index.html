@@ -23,7 +23,7 @@
             position: absolute;
             top: 50%; left: 50%;
             transform-origin: center center;
-            background-color: #0A2E8E; /* 圖片中的深藍色背景 */
+            background-color: #0A2E8E;
             overflow: hidden;
         }
 
@@ -165,7 +165,6 @@
         function resizeCanvas() {
             const ww = window.innerWidth;
             const wh = window.innerHeight;
-            // 計算 1920x1080 放在當前螢幕的最大縮放比例
             const scale = Math.min(ww / 1920, wh / 1080);
             const container = document.getElementById('app-container');
             container.style.transform = `translate(-50%, -50%) scale(${scale})`;
@@ -176,7 +175,6 @@
         /* ==========================================
            B. 頁面自動切換 (每 15 秒)
            ========================================== */
-        let currentPage = 1;
         setInterval(() => {
             document.getElementById('page1').classList.toggle('active');
             document.getElementById('page2').classList.toggle('active');
@@ -207,7 +205,7 @@
         updateClock();
 
         /* ==========================================
-           D. 狗狗 4宮格輪播 (每 5 秒切換其中 1 格)
+           D. 狗狗 4宮格輪播 (大幅擴充 20 張相片)
            ========================================== */
         const dogUrls = [
             "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
@@ -215,7 +213,21 @@
             "https://images.dog.ceo/breeds/shiba/shiba-13.jpg",
             "https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg",
             "https://images.dog.ceo/breeds/corgi-cardigan/n02113186_1111.jpg",
-            "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg"
+            "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg",
+            "https://images.dog.ceo/breeds/beagle/n02088364_12115.jpg",
+            "https://images.dog.ceo/breeds/bulldog-french/n02108915_4664.jpg",
+            "https://images.dog.ceo/breeds/pomeranian/n02112018_1090.jpg",
+            "https://images.dog.ceo/breeds/malamute/n02110063_14238.jpg",
+            "https://images.dog.ceo/breeds/chihuahua/n02085620_2650.jpg",
+            "https://images.dog.ceo/breeds/dalmatian/cooper1.jpg",
+            "https://images.dog.ceo/breeds/akita/Akita_Inu_dog.jpg",
+            "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg",
+            "https://images.dog.ceo/breeds/dachshund/dog-3061494_640.jpg",
+            "https://images.dog.ceo/breeds/poodle-standard/n02113799_2280.jpg",
+            "https://images.dog.ceo/breeds/schnauzer-miniature/n02097047_6784.jpg",
+            "https://images.dog.ceo/breeds/chow/n02112261_3726.jpg",
+            "https://images.dog.ceo/breeds/mastiff-tibetan/n02108551_1189.jpg",
+            "https://images.dog.ceo/breeds/rottweiler/n02106550_10606.jpg"
         ];
         
         // 初始化 HTML
@@ -241,7 +253,7 @@
         }, 5000);
 
         /* ==========================================
-           E. 巴士 ETA (改用 Route API 保證有數據)
+           E. 巴士 ETA (智能搜尋最多班次的車站，解決「載入中」問題)
            ========================================== */
         const busRoutes = [
             { num: '47X', dest: '葵盛(東)', dir: 'O' }, { num: '80X', dest: '觀塘碼頭', dir: 'O' },
@@ -250,7 +262,6 @@
             { num: '282', dest: '新城市廣場', dir: 'O'}, { num: '284', dest: '沙田市中心', dir: 'O' }
         ];
 
-        // 初始化佈局
         const col1 = document.getElementById('bus-col-1');
         const col2 = document.getElementById('bus-col-2');
         busRoutes.forEach((r, idx) => {
@@ -268,40 +279,62 @@
             for (let i = 0; i < busRoutes.length; i++) {
                 try {
                     const r = busRoutes[i];
-                    // 根據路線獲取所有車站 ETA
+                    // 抓取整條路線的 ETA
                     const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1/${r.dir}`);
                     const json = await res.json();
                     
-                    const validEtas = json.data.filter(x => x.eta !== null);
                     let displayMins = [];
                     
-                    if (validEtas.length > 0) {
-                        // 為了 Demo 保證有數據，提取路線中間站點的班次
-                        const seqs = [...new Set(validEtas.map(x => x.seq))];
-                        const targetSeq = seqs[Math.floor(seqs.length / 3)]; 
+                    if (json.data && json.data.length > 0) {
+                        const seqGroups = {}; // 用於按站點順序 (seq) 分組
                         
-                        const stopEtas = validEtas.filter(x => x.seq === targetSeq).slice(0, 3);
-                        
-                        displayMins = stopEtas.map(x => {
-                            const diffMins = Math.floor((new Date(x.eta) - now) / 60000);
-                            return diffMins < 0 ? 0 : diffMins;
+                        // 整理所有有效的將來到站時間
+                        json.data.forEach(item => {
+                            if (item.eta) {
+                                const diffMins = Math.floor((new Date(item.eta) - now) / 60000);
+                                if (diffMins >= 0) {
+                                    if (!seqGroups[item.seq]) seqGroups[item.seq] = [];
+                                    seqGroups[item.seq].push(diffMins);
+                                }
+                            }
                         });
+
+                        // 智能挑選：找出包含最多「未來班次」的站點
+                        let bestSeq = null;
+                        let maxCount = 0;
+                        for (const seq in seqGroups) {
+                            // 去除重複的時間 (有時 API 會回傳兩個相同的分鐘數)
+                            seqGroups[seq] = [...new Set(seqGroups[seq])].sort((a, b) => a - b);
+                            if (seqGroups[seq].length > maxCount) {
+                                maxCount = seqGroups[seq].length;
+                                bestSeq = seq;
+                            }
+                        }
+
+                        // 如果找到合適站點，取最近的 3 班車
+                        if (bestSeq) {
+                            displayMins = seqGroups[bestSeq].slice(0, 3);
+                        }
                     }
 
+                    // 更新 DOM
                     const container = document.getElementById(`bus-etas-${i}`);
                     if (displayMins.length === 0) {
                         container.innerHTML = `<span class="eta-min none">暫無班次</span>`;
                     } else {
                         container.innerHTML = displayMins.map(m => {
-                            const colorClass = m <= 5 ? 'red' : 'green';
+                            const colorClass = m <= 5 ? 'red' : '';
                             return `<span class="eta-min ${colorClass}">${m}</span>`;
                         }).join('');
                     }
-                } catch (e) { console.error("Bus API Error:", e); }
+                } catch (e) { 
+                    console.error(`Bus API Error (${busRoutes[i].num}):`, e); 
+                }
             }
         }
-        setInterval(fetchBusETA, 60000);
+        // 初始載入及設定每 60 秒刷新
         fetchBusETA();
+        setInterval(fetchBusETA, 60000);
 
         /* ==========================================
            F. 香港天文台實時及預報天氣
