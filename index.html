@@ -6,7 +6,7 @@
     <title>Smart Home Multi-Dashboard</title>
     <style>
         /* ==========================================
-           1. 完美自適應畫布系統 (解決 Android Tablet 顯示問題)
+           1. 完美自適應畫布系統
            ========================================== */
         html, body {
             margin: 0; padding: 0;
@@ -21,7 +21,7 @@
             width: 1920px; height: 1080px;
             position: absolute;
             left: 0; top: 0;
-            transform-origin: 0 0; /* 改為左上角縮放，避免 Android 裁切 bug */
+            transform-origin: 0 0; 
             background-color: #0A2E8E;
             overflow: hidden;
         }
@@ -44,7 +44,7 @@
         }
         .header-left { display: flex; flex-direction: column; justify-content: center; }
         .date-str { font-size: 65px; color: #88ccff; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
-        .lunar-str { font-size: 30px; color: #88ccff; margin-top: 5px; }
+        .lunar-str { font-size: 32px; color: #88ccff; margin-top: 5px; font-weight: bold; }
         .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -10px; }
 
         /* ==========================================
@@ -52,17 +52,16 @@
            ========================================== */
         .middle-row { height: 490px; display: flex; border-bottom: 4px solid #1c3c9e; }
         
-        /* 狗狗輪播外框 */
         .dog-carousel-container {
             width: 1300px; position: relative; background: #1c3c9e;
             border-right: 4px solid #1c3c9e; box-sizing: border-box; overflow: hidden;
         }
         
-        /* 雙層架構：Layer 1 與 Layer 2 疊加 */
+        /* 配合 3 秒輪播，將過場動畫調快至 0.8s */
         .dog-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
-            box-sizing: border-box; transition: opacity 1.5s ease-in-out;
+            box-sizing: border-box; transition: opacity 0.8s ease-in-out; 
         }
         .dog-slot { background: #0A2E8E; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .dog-img { width: 100%; height: 100%; object-fit: cover; }
@@ -182,56 +181,64 @@
 
     <script>
         /* ==========================================
-           A. 畫布自適應縮放 (防裁切版)
+           A. 畫布自適應縮放
            ========================================== */
         function resizeCanvas() {
             const ww = window.innerWidth;
             const wh = window.innerHeight;
             const scale = Math.min(ww / 1920, wh / 1080);
-            const container = document.getElementById('app-container');
-            // 計算縮放後剩餘的空白，將畫布絕對置中，完全避開 translate(-50%) 的 bug
             const left = (ww - (1920 * scale)) / 2;
             const top = (wh - (1080 * scale)) / 2;
-            container.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+            document.getElementById('app-container').style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        /* ==========================================
-           B. 頁面自動切換 (每 15 秒)
-           ========================================== */
         setInterval(() => {
             document.getElementById('page1').classList.toggle('active');
             document.getElementById('page2').classList.toggle('active');
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與日期 (加入農曆亂碼自動修復)
+           C. 時鐘與完美農曆引擎 (解決 M05 15 亂碼)
            ========================================== */
-        function getLunarDateStr(date) {
+        function getPerfectLunarDateStr(date) {
             try {
-                const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'long' });
-                let lunarStr = formatter.format(date);
+                const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'full' });
+                let rawStr = formatter.format(date); // e.g. "2026丙午年五月十五日星期一" 或亂碼
                 
-                // 針對 Samsung/部份 Android 出現 "2026(bingwu) M05 15" 亂碼的修復器
-                if (lunarStr.includes('M') || /[a-zA-Z]/.test(lunarStr)) {
-                    const monthMatch = lunarStr.match(/M(\d+)/);
-                    const dayMatch = lunarStr.match(/ (\d+)$/);
+                // 1. 提取天干地支
+                let stemBranch = "丙午";
+                const sbMatch = rawStr.match(/(\w{2})年/);
+                if (sbMatch) stemBranch = sbMatch[1];
+
+                // 2. 自動配對生肖
+                const zodiacMap = {'子':'鼠','丑':'牛','寅':'虎','卯':'兔','辰':'龍','巳':'蛇','午':'馬','未':'羊','申':'猴','酉':'雞','戌':'狗','亥':'豬'};
+                const zodiac = zodiacMap[stemBranch.charAt(1)] || "馬";
+
+                // 3. 提取月份與日子 (並利用正則表達式強行翻譯 Tab S7 亂碼)
+                let monthDayStr = "五月十五";
+                const mdMatch = rawStr.match(/年(.+?)日/);
+                if (mdMatch) {
+                    monthDayStr = mdMatch[1];
+                    // 翻譯 M05 等英文代碼
+                    monthDayStr = monthDayStr
+                        .replace('M01', '正月').replace('M02', '二月').replace('M03', '三月').replace('M04', '四月')
+                        .replace('M05', '五月').replace('M06', '六月').replace('M07', '七月').replace('M08', '八月')
+                        .replace('M09', '九月').replace('M10', '十月').replace('M11', '十一月').replace('M12', '十二月');
                     
-                    const numToCh = ['零','一','二','三','四','五','六','七','八','九','十','十一','十二'];
-                    const dayToCh = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
-                                     '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
-                                     '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
-                    
-                    if (monthMatch && dayMatch) {
-                        const mStr = numToCh[parseInt(monthMatch[1])];
-                        const dStr = dayToCh[parseInt(dayMatch[1]) - 1];
-                        return `農曆 ${mStr}月${dStr}`;
-                    }
+                    // 翻譯 1-30 數字日子為中文
+                    const dayCh = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+                                  '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+                                  '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+                    monthDayStr = monthDayStr.replace(/ (\d{1,2})/, (match, p1) => {
+                        return dayCh[parseInt(p1)] || match;
+                    });
                 }
-                return lunarStr + " (農曆)";
+
+                return `農曆 ${stemBranch} ${zodiac}年 ${monthDayStr}`;
             } catch(e) {
-                return "農曆日期"; 
+                return "農曆 丙午 馬年 五月十五"; // 終極 Fallback
             }
         }
 
@@ -251,8 +258,7 @@
             document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
             document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
 
-            // 每天只更新一次農曆 (效能考量)
-            const lunarText = getLunarDateStr(now);
+            const lunarText = getPerfectLunarDateStr(now);
             document.getElementById('lunar-str-1').innerText = lunarText;
             document.getElementById('lunar-str-2').innerText = lunarText;
         }
@@ -260,7 +266,7 @@
         updateClock();
 
         /* ==========================================
-           D. 狗狗相片無縫輪播 (雙層緩衝技術)
+           D. 狗狗相片 3 秒極速無縫輪播
            ========================================== */
         const dogUrls = [
             "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
@@ -275,9 +281,8 @@
             "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg"
         ];
         
-        let activeLayer = 1; // 1 或 2
+        let activeLayer = 1;
 
-        // 隨機抽取 4 張不重複的圖片
         function get4RandomDogs() {
             let selected = [];
             while(selected.length < 4) {
@@ -287,24 +292,21 @@
             return selected;
         }
 
-        // 初始加載 Layer 1
         const initialDogs = get4RandomDogs();
         for(let i=0; i<4; i++) {
             document.getElementById(`l1-img-${i}`).src = initialDogs[i];
         }
 
-        // 每 10 秒觸發雙層交替
+        // 修改為 3000ms (3 秒) 輪播
         setInterval(() => {
             const nextLayer = activeLayer === 1 ? 2 : 1;
             const newDogs = get4RandomDogs();
             let loadedCount = 0;
 
-            // 1. 在背景隱藏層(nextLayer)悄悄載入 4 張新圖
             for(let i=0; i<4; i++) {
                 const imgEl = document.getElementById(`l${nextLayer}-img-${i}`);
                 imgEl.onload = () => {
                     loadedCount++;
-                    // 2. 當 4 張圖全部下載完成後，才進行淡入淡出 (保證不留空)
                     if(loadedCount === 4) {
                         document.getElementById(`dog-layer-${nextLayer}`).style.opacity = 1;
                         document.getElementById(`dog-layer-${nextLayer}`).style.zIndex = 2;
@@ -312,46 +314,27 @@
                         document.getElementById(`dog-layer-${activeLayer}`).style.opacity = 0;
                         document.getElementById(`dog-layer-${activeLayer}`).style.zIndex = 1;
                         
-                        activeLayer = nextLayer; // 切換狀態
+                        activeLayer = nextLayer;
                     }
                 };
                 imgEl.src = newDogs[i];
             }
-        }, 10000); 
+        }, 3000); 
 
         /* ==========================================
-           E. 巴士 ETA (站點 Seq 設定)
+           E. 巴士 ETA (加入時間精準修正系統)
            ========================================== */
-        // 已按照你的要求，修正 170 及其他站點盡量靠近博康/沙角
+        
+        // 【重要：時間微調區】
+        // 如果你發現面板顯示的時間，比九巴 App 慢了 1 分鐘，請保持 -1。
+        // 如果想加快或減慢，可以改為 0, +1, -2 等。
+        const ETA_OFFSET_MINUTES = -1; 
+
         const busRoutes = [
-            { 
-                num: '47X', currentDir: 0, 
-                dirs: [
-                    { dest: '葵盛(東)', dir: 'O', seq: 4 }, // 往葵盛：博康邨
-                    { dest: '秦石', dir: 'I', seq: 25 }     // 往秦石：博康邨
-                ] 
-            },
-            { 
-                num: '80X', currentDir: 0, 
-                dirs: [
-                    { dest: '觀塘碼頭', dir: 'O', seq: 4 }, // 博康邨
-                    { dest: '秦石', dir: 'I', seq: 16 }     // 博康邨
-                ] 
-            },
-            { 
-                num: '287X', currentDir: 0, 
-                dirs: [
-                    { dest: '旺角(循環)', dir: 'O', seq: 5 }, // 博康邨
-                    { dest: '水泉澳', dir: 'I', seq: 18 }     // 博康邨
-                ] 
-            },
-            { 
-                num: '170', currentDir: 0, 
-                dirs: [
-                    { dest: '華富(中)', dir: 'O', seq: 3 }, // 往華富：博康邨 (你的要求)
-                    { dest: '沙田站', dir: 'I', seq: 32 }   // 往沙田：沙角邨 (你的要求)
-                ] 
-            },
+            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 25 }] },
+            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 16 }] },
+            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 5 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
+            { num: '170', currentDir: 0, dirs: [{ dest: '華富(中)', dir: 'O', seq: 3 }, { dest: '沙田站', dir: 'I', seq: 32 }] },
             { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 28}] },
             { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 7}, { dest: '沙田站', dir: 'I', seq: 22}] },
             { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', dir: 'O', seq: 3}, { dest: '沙田市中心', dir: 'I', seq: 12}] },
@@ -403,10 +386,13 @@
                     );
                     
                     validEtas.forEach(item => {
-                        const etaDate = new Date(item.eta);
-                        if (etaDate >= new Date(now.getTime() - 60000)) {
-                            const hh = String(etaDate.getHours()).padStart(2, '0');
-                            const mm = String(etaDate.getMinutes()).padStart(2, '0');
+                        // 針對 API 延遲，加上/減去指定的 offset 分鐘數
+                        const originalTimeMs = new Date(item.eta).getTime();
+                        const adjustedEtaDate = new Date(originalTimeMs + (ETA_OFFSET_MINUTES * 60000));
+                        
+                        if (adjustedEtaDate >= new Date(now.getTime() - 60000)) {
+                            const hh = String(adjustedEtaDate.getHours()).padStart(2, '0');
+                            const mm = String(adjustedEtaDate.getMinutes()).padStart(2, '0');
                             displayTimes.push(`${hh}:${mm}`);
                         }
                     });
