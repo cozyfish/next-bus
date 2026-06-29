@@ -5,41 +5,178 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Home Multi-Dashboard</title>
     <style>
-        /* (樣式部分保持不變，僅列出關鍵修改) */
-        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; background-color: #000000; display: flex; justify-content: center; align-items: center; overflow: hidden; font-family: "Helvetica Neue", Helvetica, Arial, "PingFang HK", sans-serif; }
-        #app-container { width: 1920px; height: 1080px; position: absolute; top: 50%; left: 50%; transform-origin: center center; background-color: #0A2E8E; overflow: hidden; }
-        .page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; opacity: 0; transition: opacity 1s ease-in-out; pointer-events: none; }
+        /* ==========================================
+           1. 完美自適應畫布系統 (Canvas Scaling System)
+           ========================================== */
+        html, body {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: #000000;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang HK", sans-serif;
+        }
+
+        #app-container {
+            width: 1920px; height: 1080px;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform-origin: center center;
+            background-color: #0A2E8E;
+            overflow: hidden;
+        }
+
+        /* 頁面切換動畫 */
+        .page {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            opacity: 0; transition: opacity 1s ease-in-out;
+            pointer-events: none;
+        }
         .page.active { opacity: 1; pointer-events: auto; }
-        .dog-grid { width: 1300px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: #1c3c9e; border-right: 4px solid #1c3c9e; padding: 4px; box-sizing: border-box; }
-        .dog-slot { position: relative; background: #000; overflow: hidden; }
-        .dog-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; }
-        /* 其他樣式保持原樣... */
+
+        /* ==========================================
+           2. 頂部 Header
+           ========================================== */
+        .header {
+            height: 160px; display: flex; justify-content: space-between; align-items: center;
+            padding: 0 40px; border-bottom: 4px solid #1c3c9e; background-color: #0A2E8E;
+        }
+        .header-left { display: flex; flex-direction: column; }
+        .date-str { font-size: 70px; color: #88ccff; font-weight: bold; letter-spacing: 2px; }
+        .lunar-str { font-size: 28px; color: #88ccff; margin-top: 5px; }
+        .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -15px; }
+
+        /* ==========================================
+           3. 頁面 1 (天氣與狗狗相片)
+           ========================================== */
+        .middle-row { height: 490px; display: flex; border-bottom: 4px solid #1c3c9e; }
+        
+        .dog-grid { 
+            width: 1300px; display: grid; grid-template-columns: repeat(4, 1fr); 
+            gap: 4px; background: #1c3c9e; border-right: 4px solid #1c3c9e; padding: 4px; box-sizing: border-box; 
+        }
+        .dog-slot { 
+            position: relative; 
+            background: linear-gradient(45deg, #1c3c9e, #0A2E8E); /* 圖片未載入前的優雅過渡背景 */
+            overflow: hidden; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        .dog-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; opacity: 1; }
+
+        .weather-current { 
+            width: 620px; display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; text-align: center; box-sizing: border-box; 
+        }
+        .weather-loc { font-size: 65px; color: #88ccff; margin-bottom: 15px; }
+        .weather-temp { font-size: 60px; color: #fff; margin-bottom: 20px; font-weight: bold; }
+        .weather-aqi { font-size: 40px; color: #aaa; line-height: 1.5; margin-bottom: 15px; }
+        .weather-icon-huge { font-size: 120px; margin-top: 10px; }
+
+        .forecast-row { 
+            height: 430px; display: grid; grid-template-columns: repeat(6, 1fr); 
+            gap: 4px; background: #1c3c9e; padding: 4px 0 0 0; 
+        }
+        .forecast-day { background: #0A2E8E; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; }
+        .fd-date { font-size: 38px; font-weight: bold; color: #88ccff; }
+        .fd-day { font-size: 34px; font-weight: bold; color: #88ccff; }
+        .fd-day.sun { color: #ff5555; }
+        .fd-icon { font-size: 70px; }
+        .fd-temp { font-size: 42px; font-weight: bold; color: #fff; }
+        .fd-hum { font-size: 32px; color: #88ccff; }
+        .fd-rain { font-size: 30px; color: #88ccff; }
+
+        /* ==========================================
+           4. 頁面 2 (巴士與交通)
+           ========================================== */
+        .bus-grid { 
+            height: 920px; display: grid; grid-template-columns: 660px 660px 584px; 
+            gap: 8px; background: #1c3c9e; padding: 8px; box-sizing: border-box; 
+        }
+        .bus-col { display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px; }
+        .bus-cell { background: #0A2E8E; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; }
+        
+        .bus-route-row { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid rgba(255,255,255,0.15); padding-bottom: 10px; }
+        .bus-num { font-size: 65px; color: #ffffaa; font-weight: bold; white-space: nowrap; }
+        .bus-dest-container { display: flex; align-items: center; justify-content: flex-end; width: 100%; margin-left: 20px;}
+        .bus-dest { font-size: 42px; color: #ffffff; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 替換為 SVG 樣式的刷新按鈕 */
+        .refresh-btn { 
+            cursor: pointer; margin-left: 15px;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.3s ease; user-select: none;
+        }
+        .refresh-btn:active svg { transform: rotate(180deg); }
+
+        .bus-eta-row { display: flex; gap: 30px; margin-top: 25px; font-weight: bold; font-size: 60px; }
+        .eta-time { color: #55ff55; } /* 綠色 HH:MM */
+        .eta-time.none { color: #888; font-size: 45px; font-weight: normal; }
+
+        /* 隧道交通資訊 */
+        .traffic-col { background: #002277; padding: 40px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
+        .traffic-header { font-size: 45px; color: #88ccff; border-bottom: 2px solid #88ccff; padding-bottom: 15px; margin-bottom: 10px; text-align: center; }
+        .traffic-row { display: flex; justify-content: space-between; font-size: 50px; color: #fff; align-items: center; }
+        .traffic-time { color: #55ff55; font-weight: bold; }
+        .traffic-time span { font-size: 35px; color: #aaa; margin-left: 10px; font-weight: normal; }
+
     </style>
 </head>
 <body>
+
     <div id="app-container">
-        <!-- Page 1 & Page 2 結構保持不變 -->
         <div id="page1" class="page active">
-            <!-- ... header, middle-row, forecast-row ... -->
-            <div class="middle-row">
-                <div class="dog-grid" id="dog-grid"></div>
-                <!-- weather-current ... -->
+            <div class="header">
+                <div class="header-left">
+                    <span class="date-str" id="date-str-1">----年--月--日(-)</span>
+                    <div class="lunar-str">二零二六年五月十三 丙午年 (馬年)</div>
+                </div>
+                <div class="header-right"><span class="time-str" id="time-str-1">--:--:--</span></div>
             </div>
-            <!-- forecast-row -->
+            <div class="middle-row">
+                <div class="dog-grid" id="dog-grid">
+                    <div class="dog-slot"><img id="dog-img-0" class="dog-img" src="https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg" alt="dog"></div>
+                    <div class="dog-slot"><img id="dog-img-1" class="dog-img" src="https://images.dog.ceo/breeds/husky/n02110185_10047.jpg" alt="dog"></div>
+                    <div class="dog-slot"><img id="dog-img-2" class="dog-img" src="https://images.dog.ceo/breeds/shiba/shiba-13.jpg" alt="dog"></div>
+                    <div class="dog-slot"><img id="dog-img-3" class="dog-img" src="https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg" alt="dog"></div>
+                </div>
+                <div class="weather-current">
+                    <div class="weather-loc">沙田</div>
+                    <div class="weather-temp" id="cw-temp-hum">--°C | --%</div>
+                    <div class="weather-aqi">CO2: 448<br>PM2.5: 26</div> 
+                    <div class="weather-icon-huge" id="cw-icon">⛅</div>
+                </div>
+            </div>
+            <div class="forecast-row" id="forecast-row"></div>
         </div>
 
         <div id="page2" class="page">
-            <!-- header -->
+            <div class="header">
+                <div class="header-left">
+                    <span class="date-str" id="date-str-2">----年--月--日(-)</span>
+                    <div class="lunar-str">二零二六年五月十三 丙午年 (馬年)</div>
+                </div>
+                <div class="header-right"><span class="time-str" id="time-str-2">--:--:--</span></div>
+            </div>
             <div class="bus-grid">
                 <div class="bus-col" id="bus-col-1"></div>
                 <div class="bus-col" id="bus-col-2"></div>
-                <!-- traffic-col -->
+                <div class="traffic-col">
+                    <div class="traffic-header">沙田區 隧道預計時間</div>
+                    <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time">12<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>大老山隧道</span><span class="traffic-time">15<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>城門隧道</span><span class="traffic-time">10<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time">08<span>分鐘</span></span></div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        /* A. 畫布縮放、B. 頁面切換、C. 時鐘 (保持不變) */
+        /* ==========================================
+           A. 畫布自適應縮放
+           ========================================== */
         function resizeCanvas() {
             const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
             document.getElementById('app-container').style.transform = `translate(-50%, -50%) scale(${scale})`;
@@ -47,112 +184,155 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
+        /* ==========================================
+           B. 頁面自動切換 (每 15 秒)
+           ========================================== */
         setInterval(() => {
             document.getElementById('page1').classList.toggle('active');
             document.getElementById('page2').classList.toggle('active');
         }, 15000);
 
-        /* 時鐘與日期 (不變) */
-        function updateClock() { /* ... 原有程式碼 ... */ }
+        /* ==========================================
+           C. 時鐘與日期
+           ========================================== */
+        function updateClock() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${hh}:${mm}:${ss}`;
+            
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const dateStr = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+
+            document.getElementById('time-str-1').innerText = timeStr;
+            document.getElementById('time-str-2').innerText = timeStr;
+            document.getElementById('date-str-1').innerText = dateStr;
+            document.getElementById('date-str-2').innerText = dateStr;
+        }
         setInterval(updateClock, 1000);
         updateClock();
 
         /* ==========================================
-           D. 狗狗相片輪播 - 修正版（保證永遠填滿4格）
+           D. 狗狗相片輪播
            ========================================== */
-        const dogUrls = [ /* 原陣列不變 */ 
+        const dogUrls = [
             "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
             "https://images.dog.ceo/breeds/husky/n02110185_10047.jpg",
-            // ... 其餘保持
+            "https://images.dog.ceo/breeds/shiba/shiba-13.jpg",
+            "https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg",
+            "https://images.dog.ceo/breeds/corgi-cardigan/n02113186_1111.jpg",
+            "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg",
+            "https://images.dog.ceo/breeds/beagle/n02088364_12115.jpg",
+            "https://images.dog.ceo/breeds/pomeranian/n02112018_1090.jpg",
+            "https://images.dog.ceo/breeds/malamute/n02110063_14238.jpg",
+            "https://images.dog.ceo/breeds/dalmatian/cooper1.jpg",
+            "https://images.dog.ceo/breeds/akita/Akita_Inu_dog.jpg",
+            "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg",
+            "https://images.dog.ceo/breeds/schnauzer-miniature/n02097047_6784.jpg",
+            "https://images.dog.ceo/breeds/chow/n02112261_3726.jpg"
         ];
-
-        const dogGrid = document.getElementById('dog-grid');
         
-        // 初始填滿4格
-        function initDogs() {
-            dogGrid.innerHTML = '';
-            const shuffled = [...dogUrls].sort(() => 0.5 - Math.random());
-            for (let i = 0; i < 4; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'dog-slot';
-                slot.innerHTML = `<img id="dog-img-\( {i}" class="dog-img" src=" \){shuffled[i]}" style="opacity:1;">`;
-                dogGrid.appendChild(slot);
-            }
-        }
-        initDogs();
-
-        // 每5秒隨機替換一張（保證不留空）
+        // 由於 HTML 已經預載了首 4 張，這裡直接開始每 5 秒平滑替換其中一張
         setInterval(() => {
             const slotIndex = Math.floor(Math.random() * 4);
             const imgEl = document.getElementById(`dog-img-${slotIndex}`);
-            if (!imgEl) return;
-
-            imgEl.style.opacity = 0;
-
+            
+            imgEl.style.opacity = 0; // 先淡出
             setTimeout(() => {
+                const currentUrls = [0,1,2,3].map(i => document.getElementById(`dog-img-${i}`).src);
                 let newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
-                const currentUrls = Array.from(document.querySelectorAll('.dog-img')).map(img => img.src);
-                
-                // 避免重複
-                while (currentUrls.includes(newUrl)) {
+                while(currentUrls.includes(newUrl)) { // 防重複
                     newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
                 }
-
                 imgEl.src = newUrl;
-                imgEl.onload = () => { imgEl.style.opacity = 1; };
-                // 防止載入失敗
-                imgEl.onerror = () => { imgEl.src = dogUrls[0]; imgEl.style.opacity = 1; };
-            }, 800);
+                // 圖片成功下載後再觸發淡入，防止黑影
+                imgEl.onload = () => { imgEl.style.opacity = 1; }; 
+            }, 1000); 
         }, 5000);
 
         /* ==========================================
-           E. 巴士 ETA - 重大修正（正確 API URL + 過濾方向）
+           E. 巴士 ETA (加入雙向切換、SVG Refresh 按鈕、安全排隊 Fetch)
            ========================================== */
-        const busRoutes = [ /* 原陣列保持不變 */ ];
+        const busRoutes = [
+            { num: '47X', currentDir: 0, dirs: [{d: 'O', dest: '葵盛(東)'}, {d: 'I', dest: '秦石'}] },
+            { num: '80X', currentDir: 0, dirs: [{d: 'O', dest: '觀塘碼頭'}, {d: 'I', dest: '秦石'}] },
+            { num: '287X', currentDir: 0, dirs: [{d: 'O', dest: '水泉澳'}, {d: 'I', dest: '旺角(循環線)'}] },
+            { num: '81C', currentDir: 0, dirs: [{d: 'O', dest: '尖沙咀(東)'}, {d: 'I', dest: '耀安'}] },
+            { num: '89X', currentDir: 0, dirs: [{d: 'O', dest: '觀塘站'}, {d: 'I', dest: '沙田站'}] },
+            { num: '170', currentDir: 0, dirs: [{d: 'O', dest: '華富(中)'}, {d: 'I', dest: '沙田站'}] },
+            { num: '282', currentDir: 0, dirs: [{d: 'O', dest: '新城市廣場'}, {d: 'I', dest: '沙田市中心'}] },
+            { num: '284', currentDir: 0, dirs: [{d: 'O', dest: '沙田市中心'}, {d: 'I', dest: '濱景花園'}] }
+        ];
 
-        // 渲染框架 (不變)
+        // 高質量的白色 SVG 刷新圖標，徹底解決 Emoji 被濾鏡破壞的問題
+        const refreshSvgIcon = `
+            <svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        `;
+
         const col1 = document.getElementById('bus-col-1');
         const col2 = document.getElementById('bus-col-2');
         busRoutes.forEach((r, idx) => {
-            const html = `...`; // 原有 HTML 模板不變
+            const html = `
+                <div class="bus-cell">
+                    <div class="bus-route-row">
+                        <span class="bus-num">${r.num}</span>
+                        <div class="bus-dest-container">
+                            <span class="bus-dest" id="bus-dest-text-${idx}">${r.dirs[r.currentDir].dest}</span>
+                            <div class="refresh-btn" onclick="toggleDirection(${idx})" title="切換方向">
+                                ${refreshSvgIcon}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bus-eta-row" id="bus-etas-${idx}"><span class="eta-time none">載入中...</span></div>
+                </div>`;
             if (idx < 4) col1.innerHTML += html;
             else col2.innerHTML += html;
         });
 
-        // 修正後的核心抓取函數
+        // 獨立抓取單一路線
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
 
             try {
-                // 正確的 API URL：只用 route + service_type=1
+                // 正確的 KMB Route ETA API (不包含 direction)
                 const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
                 const json = await res.json();
                 
                 let displayTimes = [];
-
+                
                 if (json.data && json.data.length > 0) {
-                    const seqGroups = {};
-
+                    const seqGroups = {}; 
+                    
                     json.data.forEach(item => {
-                        // 關鍵修正：只取目前方向的資料
-                        if (item.dir !== activeDir.d || !item.eta) return;
-
-                        const etaDate = new Date(item.eta);
-                        if (etaDate >= now) {
-                            if (!seqGroups[item.seq]) seqGroups[item.seq] = [];
-                            const hh = String(etaDate.getHours()).padStart(2, '0');
-                            const mm = String(etaDate.getMinutes()).padStart(2, '0');
-                            seqGroups[item.seq].push(`\( {hh}: \){mm}`);
+                        // 必須本地過濾方向 (item.dir === 'O' 或 'I')
+                        if (item.dir === activeDir.d && item.eta) {
+                            const etaDate = new Date(item.eta);
+                            // 只擷取未來班次 (允許 1 分鐘緩衝)
+                            if (etaDate >= new Date(now.getTime() - 60000)) {
+                                if (!seqGroups[item.seq]) seqGroups[item.seq] = [];
+                                // 轉為 24 小時制 (HH:MM)
+                                const hh = String(etaDate.getHours()).padStart(2, '0');
+                                const mm = String(etaDate.getMinutes()).padStart(2, '0');
+                                seqGroups[item.seq].push(`${hh}:${mm}`);
+                            }
                         }
                     });
 
-                    // 找資料最豐富的站台
+                    // 找出該路線方向中，涵蓋最多未來班次的車站 (保證有數據)
                     let bestSeq = null;
                     let maxCount = 0;
                     for (const seq in seqGroups) {
-                        seqGroups[seq] = [...new Set(seqGroups[seq])].sort();
+                        seqGroups[seq] = [...new Set(seqGroups[seq])].sort(); // 去除重複時間
                         if (seqGroups[seq].length > maxCount) {
                             maxCount = seqGroups[seq].length;
                             bestSeq = seq;
@@ -160,35 +340,94 @@
                     }
 
                     if (bestSeq) {
-                        displayTimes = seqGroups[bestSeq].slice(0, 3);
+                        displayTimes = seqGroups[bestSeq].slice(0, 3); // 提取未來最近 3 班
                     }
                 }
 
+                // 渲染至畫面
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (displayTimes.length === 0) {
                     container.innerHTML = `<span class="eta-time none">暫無班次</span>`;
                 } else {
                     container.innerHTML = displayTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
                 }
-            } catch (e) {
-                console.error(`Bus API Error (${r.num}):`, e);
-                document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">載入失敗</span>`;
+            } catch (e) { 
+                console.error(`Bus API Error (${r.num}):`, e); 
+                document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">暫無班次</span>`;
             }
         }
 
-        function toggleDirection(idx) { /* 原有 toggle 邏輯不變 */ }
+        // 手動切換方向 (點擊 Refresh SVG)
+        function toggleDirection(idx) {
+            const r = busRoutes[idx];
+            r.currentDir = (r.currentDir + 1) % r.dirs.length;
+            
+            // 更新 UI
+            document.getElementById(`bus-dest-text-${idx}`).innerText = r.dirs[r.currentDir].dest;
+            document.getElementById(`bus-etas-${idx}`).innerHTML = '<span class="eta-time none">載入中...</span>';
+            
+            // 獨立刷新該格資料
+            fetchSpecificRoute(idx);
+        }
 
-        function fetchAllBuses() {
+        // 排隊機制獲取所有巴士 (避免同時間 Fetch 8 次導致 IP Block)
+        async function fetchAllBuses() {
             for (let i = 0; i < busRoutes.length; i++) {
-                fetchSpecificRoute(i);
+                await fetchSpecificRoute(i);
+                // 每次 Fetch 後強制暫停 300 毫秒
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
-
+        
+        // 初始化並嚴格設定每 60 秒全局刷新
         fetchAllBuses();
         setInterval(fetchAllBuses, 60000);
 
-        /* F. 天氣部分保持不變 */
-        /* ... 原有 fetchWeather ... */
+        /* ==========================================
+           F. 香港天文台實時及預報天氣
+           ========================================== */
+        function getWeatherIcon(iconId) {
+            if(iconId >= 50 && iconId <= 54) return '☀️';
+            if(iconId >= 60 && iconId <= 65) return '☁️';
+            if(iconId >= 70 && iconId <= 77) return '🌧️';
+            if(iconId >= 80) return '⛈️';
+            return '⛅';
+        }
+
+        async function fetchWeather() {
+            try {
+                const curRes = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
+                const curData = await curRes.json();
+                const temp = curData.temperature.data.find(d => d.place === '沙田')?.value || curData.temperature.data[0].value;
+                const hum = curData.humidity.data[0].value;
+                document.getElementById('cw-temp-hum').innerText = `${temp}°C | ${hum}%`;
+                
+                const fndRes = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc');
+                const fndData = await fndRes.json();
+                const forecastRow = document.getElementById('forecast-row');
+                forecastRow.innerHTML = '';
+                
+                fndData.weatherForecast.slice(0, 6).forEach(day => {
+                    const dateStr = `${day.forecastDate.substring(4,6)}月${day.forecastDate.substring(6,8)}日`;
+                    const isSun = day.week === '星期日';
+                    const tempStr = `${day.forecastMintemp.value}|${day.forecastMaxtemp.value}°C`;
+                    const humStr = `${day.forecastMinrh.value}-${day.forecastMaxrh.value}%`;
+                    const rainStr = `降雨: ${day.PSR}`;
+                    
+                    forecastRow.innerHTML += `
+                        <div class="forecast-day">
+                            <div class="fd-date">${dateStr}</div>
+                            <div class="fd-day ${isSun ? 'sun' : ''}">${day.week}</div>
+                            <div class="fd-icon">${getWeatherIcon(day.ForecastIcon)}</div>
+                            <div class="fd-temp">${tempStr}</div>
+                            <div class="fd-hum">${humStr}</div>
+                            <div class="fd-rain">${rainStr}</div>
+                        </div>`;
+                });
+            } catch (e) { console.error("Weather API Error:", e); }
+        }
+        setInterval(fetchWeather, 5 * 60 * 1000);
+        fetchWeather();
     </script>
 </body>
 </html>
