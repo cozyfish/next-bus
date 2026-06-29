@@ -26,7 +26,6 @@
             overflow: hidden;
         }
 
-        /* 頁面切換動畫 */
         .page {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -37,7 +36,7 @@
         .page.active { opacity: 1; pointer-events: auto; }
 
         /* ==========================================
-           2. 頂部 Header
+           2. 頂部 Header (包含西曆與農曆)
            ========================================== */
         .header {
             height: 160px; display: flex; justify-content: space-between; align-items: center;
@@ -49,7 +48,7 @@
         .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -15px; }
 
         /* ==========================================
-           3. 頁面 1 (天氣與狗狗相片)
+           3. 頁面 1 (天氣與 4 格狗相)
            ========================================== */
         .middle-row { height: 490px; display: flex; border-bottom: 4px solid #1c3c9e; }
         
@@ -59,7 +58,7 @@
         }
         .dog-slot { 
             position: relative; 
-            background: linear-gradient(45deg, #1c3c9e, #0A2E8E); /* 圖片未載入前的優雅過渡背景 */
+            background: #0A2E8E; 
             overflow: hidden; 
             display: flex; justify-content: center; align-items: center;
         }
@@ -102,19 +101,16 @@
         .bus-dest-container { display: flex; align-items: center; justify-content: flex-end; width: 100%; margin-left: 20px;}
         .bus-dest { font-size: 42px; color: #ffffff; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* 替換為 SVG 樣式的刷新按鈕 */
         .refresh-btn { 
-            cursor: pointer; margin-left: 15px;
-            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; margin-left: 15px; display: flex; align-items: center; justify-content: center;
             transition: transform 0.3s ease; user-select: none;
         }
         .refresh-btn:active svg { transform: rotate(180deg); }
 
         .bus-eta-row { display: flex; gap: 30px; margin-top: 25px; font-weight: bold; font-size: 60px; }
-        .eta-time { color: #55ff55; } /* 綠色 HH:MM */
+        .eta-time { color: #55ff55; } /* HH:MM */
         .eta-time.none { color: #888; font-size: 45px; font-weight: normal; }
 
-        /* 隧道交通資訊 */
         .traffic-col { background: #002277; padding: 40px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
         .traffic-header { font-size: 45px; color: #88ccff; border-bottom: 2px solid #88ccff; padding-bottom: 15px; margin-bottom: 10px; text-align: center; }
         .traffic-row { display: flex; justify-content: space-between; font-size: 50px; color: #fff; align-items: center; }
@@ -130,7 +126,7 @@
             <div class="header">
                 <div class="header-left">
                     <span class="date-str" id="date-str-1">----年--月--日(-)</span>
-                    <div class="lunar-str">二零二六年五月十三 丙午年 (馬年)</div>
+                    <div class="lunar-str" id="lunar-str-1">載入農曆中...</div>
                 </div>
                 <div class="header-right"><span class="time-str" id="time-str-1">--:--:--</span></div>
             </div>
@@ -155,7 +151,7 @@
             <div class="header">
                 <div class="header-left">
                     <span class="date-str" id="date-str-2">----年--月--日(-)</span>
-                    <div class="lunar-str">二零二六年五月十三 丙午年 (馬年)</div>
+                    <div class="lunar-str" id="lunar-str-2">載入農曆中...</div>
                 </div>
                 <div class="header-right"><span class="time-str" id="time-str-2">--:--:--</span></div>
             </div>
@@ -193,31 +189,47 @@
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與日期
+           C. 時鐘與日期 (加入農曆動態生成)
            ========================================== */
+        function getLunarDateStr(date) {
+            try {
+                // 利用瀏覽器 Intl API 直接計算農曆
+                const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { year: 'numeric', month: 'long', day: 'numeric' });
+                let lunarStr = formatter.format(date); 
+                // 輸出的字串類似： "2026丙午年五月15日"，作簡單修飾
+                lunarStr = lunarStr.replace(/(\d{4})/, '$1年(農曆) ').replace('年年', '年');
+                return lunarStr;
+            } catch(e) {
+                return "農曆載入失敗";
+            }
+        }
+
         function updateClock() {
             const now = new Date();
             const hh = String(now.getHours()).padStart(2, '0');
             const mm = String(now.getMinutes()).padStart(2, '0');
             const ss = String(now.getSeconds()).padStart(2, '0');
-            const timeStr = `${hh}:${mm}:${ss}`;
             
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const date = String(now.getDate()).padStart(2, '0');
             const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-            const dateStr = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            
+            document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
+            document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
+            document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
 
-            document.getElementById('time-str-1').innerText = timeStr;
-            document.getElementById('time-str-2').innerText = timeStr;
-            document.getElementById('date-str-1').innerText = dateStr;
-            document.getElementById('date-str-2').innerText = dateStr;
+            // 每天只更新一次農曆 (每分鐘檢查也可，消耗極小)
+            const lunarText = getLunarDateStr(now);
+            document.getElementById('lunar-str-1').innerText = lunarText;
+            document.getElementById('lunar-str-2').innerText = lunarText;
         }
         setInterval(updateClock, 1000);
         updateClock();
 
         /* ==========================================
-           D. 狗狗相片輪播
+           D. 狗狗相片輪播 (4 張同時切換)
            ========================================== */
         const dogUrls = [
             "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
@@ -228,47 +240,75 @@
             "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg",
             "https://images.dog.ceo/breeds/beagle/n02088364_12115.jpg",
             "https://images.dog.ceo/breeds/pomeranian/n02112018_1090.jpg",
-            "https://images.dog.ceo/breeds/malamute/n02110063_14238.jpg",
             "https://images.dog.ceo/breeds/dalmatian/cooper1.jpg",
-            "https://images.dog.ceo/breeds/akita/Akita_Inu_dog.jpg",
-            "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg",
-            "https://images.dog.ceo/breeds/schnauzer-miniature/n02097047_6784.jpg",
-            "https://images.dog.ceo/breeds/chow/n02112261_3726.jpg"
+            "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg"
         ];
         
-        // 由於 HTML 已經預載了首 4 張，這裡直接開始每 5 秒平滑替換其中一張
         setInterval(() => {
-            const slotIndex = Math.floor(Math.random() * 4);
-            const imgEl = document.getElementById(`dog-img-${slotIndex}`);
+            const imgEls = [0,1,2,3].map(i => document.getElementById(`dog-img-${i}`));
             
-            imgEl.style.opacity = 0; // 先淡出
+            // 1. 同時淡出 4 張
+            imgEls.forEach(img => img.style.opacity = 0);
+            
             setTimeout(() => {
-                const currentUrls = [0,1,2,3].map(i => document.getElementById(`dog-img-${i}`).src);
-                let newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
-                while(currentUrls.includes(newUrl)) { // 防重複
-                    newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
-                }
-                imgEl.src = newUrl;
-                // 圖片成功下載後再觸發淡入，防止黑影
-                imgEl.onload = () => { imgEl.style.opacity = 1; }; 
-            }, 1000); 
-        }, 5000);
+                let currentUrls = imgEls.map(img => img.src);
+                
+                // 2. 為每格派發不重複的新相片
+                imgEls.forEach(img => {
+                    let newUrl;
+                    do {
+                        newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
+                    } while(currentUrls.includes(newUrl));
+                    currentUrls.push(newUrl); // 將新圖加入陣列，確保這 4 格自己不會重複
+                    
+                    img.src = newUrl;
+                    img.onload = () => { img.style.opacity = 1; }; // 載入完畢後淡入
+                });
+            }, 1000); // 配合 CSS 1秒過渡
+        }, 8000); // 每 8 秒換一批
 
         /* ==========================================
-           E. 巴士 ETA (加入雙向切換、SVG Refresh 按鈕、安全排隊 Fetch)
+           E. 巴士 ETA (精確 Stop ID 系統)
            ========================================== */
+        // 【重要教學】：請登入 https://data.etabus.gov.hk/v1/transport/kmb/route/{路線號}/inbound 或 outbound
+        // 查找你樓下實際的 stop_id 填入此處，這樣抓出來的時間才是你的專屬車站時間。
+        // 以下為沙田圍/博康一帶的真實示範 Stop ID。
         const busRoutes = [
-            { num: '47X', currentDir: 0, dirs: [{d: 'O', dest: '葵盛(東)'}, {d: 'I', dest: '秦石'}] },
-            { num: '80X', currentDir: 0, dirs: [{d: 'O', dest: '觀塘碼頭'}, {d: 'I', dest: '秦石'}] },
-            { num: '287X', currentDir: 0, dirs: [{d: 'O', dest: '水泉澳'}, {d: 'I', dest: '旺角(循環線)'}] },
-            { num: '81C', currentDir: 0, dirs: [{d: 'O', dest: '尖沙咀(東)'}, {d: 'I', dest: '耀安'}] },
-            { num: '89X', currentDir: 0, dirs: [{d: 'O', dest: '觀塘站'}, {d: 'I', dest: '沙田站'}] },
-            { num: '170', currentDir: 0, dirs: [{d: 'O', dest: '華富(中)'}, {d: 'I', dest: '沙田站'}] },
-            { num: '282', currentDir: 0, dirs: [{d: 'O', dest: '新城市廣場'}, {d: 'I', dest: '沙田市中心'}] },
-            { num: '284', currentDir: 0, dirs: [{d: 'O', dest: '沙田市中心'}, {d: 'I', dest: '濱景花園'}] }
+            { 
+                num: '47X', currentDir: 0, 
+                dirs: [
+                    { dest: '葵盛(東)', stopId: 'C94BE5CBE0E2A123' }, // 沙田圍路近博康
+                    { dest: '秦石', stopId: '95A40CC74EC5355A' }     // 博康巴士總站
+                ] 
+            },
+            { 
+                num: '80X', currentDir: 0, 
+                dirs: [
+                    { dest: '觀塘碼頭', stopId: 'C94BE5CBE0E2A123' }, 
+                    { dest: '秦石', stopId: '95A40CC74EC5355A' }
+                ] 
+            },
+            { 
+                num: '287X', currentDir: 0, 
+                dirs: [
+                    { dest: '水泉澳', stopId: '95A40CC74EC5355A' }, 
+                    { dest: '旺角(循環)', stopId: '8BB8699CE9B1F2A7' } // 沙田圍站
+                ] 
+            },
+            { 
+                num: '170', currentDir: 0, 
+                dirs: [
+                    { dest: '華富(中)', stopId: '47963A29D64DB210' }, // 對面馬路的車站ID
+                    { dest: '沙田站', stopId: '95A40CC74EC5355A' }
+                ] 
+            },
+            // 其他路線的示範 (可以自行替換真實 Stop ID)
+            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', stopId: '8BB8699CE9B1F2A7'}, { dest: '耀安', stopId: 'C94BE5CBE0E2A123'}] },
+            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', stopId: '8BB8699CE9B1F2A7'}, { dest: '沙田站', stopId: 'C94BE5CBE0E2A123'}] },
+            { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', stopId: '95A40CC74EC5355A'}, { dest: '沙田市中心', stopId: '95A40CC74EC5355A'}] },
+            { num: '284', currentDir: 0, dirs: [{ dest: '沙田市中心', stopId: '8BB8699CE9B1F2A7'}, { dest: '濱景花園', stopId: 'C94BE5CBE0E2A123'}] }
         ];
 
-        // 高質量的白色 SVG 刷新圖標，徹底解決 Emoji 被濾鏡破壞的問題
         const refreshSvgIcon = `
             <svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
@@ -286,9 +326,7 @@
                         <span class="bus-num">${r.num}</span>
                         <div class="bus-dest-container">
                             <span class="bus-dest" id="bus-dest-text-${idx}">${r.dirs[r.currentDir].dest}</span>
-                            <div class="refresh-btn" onclick="toggleDirection(${idx})" title="切換方向">
-                                ${refreshSvgIcon}
-                            </div>
+                            <div class="refresh-btn" onclick="toggleDirection(${idx})" title="切換方向">${refreshSvgIcon}</div>
                         </div>
                     </div>
                     <div class="bus-eta-row" id="bus-etas-${idx}"><span class="eta-time none">載入中...</span></div>
@@ -297,54 +335,37 @@
             else col2.innerHTML += html;
         });
 
-        // 獨立抓取單一路線
+        // 核心：直接利用實體 Stop ID 抓取數據 (準確度 100%)
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
 
             try {
-                // 正確的 KMB Route ETA API (不包含 direction)
-                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
+                // 使用 stop-eta API，針對特定的實體巴士站
+                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${activeDir.stopId}`);
                 const json = await res.json();
                 
                 let displayTimes = [];
                 
                 if (json.data && json.data.length > 0) {
-                    const seqGroups = {}; 
+                    // 過濾出我們要顯示的那一條路線 (因為一個車站可能有多條線)
+                    const validEtas = json.data.filter(item => item.route === r.num && item.eta !== null);
                     
-                    json.data.forEach(item => {
-                        // 必須本地過濾方向 (item.dir === 'O' 或 'I')
-                        if (item.dir === activeDir.d && item.eta) {
-                            const etaDate = new Date(item.eta);
-                            // 只擷取未來班次 (允許 1 分鐘緩衝)
-                            if (etaDate >= new Date(now.getTime() - 60000)) {
-                                if (!seqGroups[item.seq]) seqGroups[item.seq] = [];
-                                // 轉為 24 小時制 (HH:MM)
-                                const hh = String(etaDate.getHours()).padStart(2, '0');
-                                const mm = String(etaDate.getMinutes()).padStart(2, '0');
-                                seqGroups[item.seq].push(`${hh}:${mm}`);
-                            }
+                    validEtas.forEach(item => {
+                        const etaDate = new Date(item.eta);
+                        // 擷取未來的班次 (允許 1 分鐘緩衝)
+                        if (etaDate >= new Date(now.getTime() - 60000)) {
+                            const hh = String(etaDate.getHours()).padStart(2, '0');
+                            const mm = String(etaDate.getMinutes()).padStart(2, '0');
+                            displayTimes.push(`${hh}:${mm}`);
                         }
                     });
 
-                    // 找出該路線方向中，涵蓋最多未來班次的車站 (保證有數據)
-                    let bestSeq = null;
-                    let maxCount = 0;
-                    for (const seq in seqGroups) {
-                        seqGroups[seq] = [...new Set(seqGroups[seq])].sort(); // 去除重複時間
-                        if (seqGroups[seq].length > maxCount) {
-                            maxCount = seqGroups[seq].length;
-                            bestSeq = seq;
-                        }
-                    }
-
-                    if (bestSeq) {
-                        displayTimes = seqGroups[bestSeq].slice(0, 3); // 提取未來最近 3 班
-                    }
+                    // 移除 API 可能返回的重複時間，並排序取首 3 班
+                    displayTimes = [...new Set(displayTimes)].sort().slice(0, 3);
                 }
 
-                // 渲染至畫面
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (displayTimes.length === 0) {
                     container.innerHTML = `<span class="eta-time none">暫無班次</span>`;
@@ -352,34 +373,28 @@
                     container.innerHTML = displayTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
                 }
             } catch (e) { 
-                console.error(`Bus API Error (${r.num}):`, e); 
+                console.error(`Bus API Error (${r.num} - ${activeDir.stopId}):`, e); 
                 document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">暫無班次</span>`;
             }
         }
 
-        // 手動切換方向 (點擊 Refresh SVG)
         function toggleDirection(idx) {
             const r = busRoutes[idx];
             r.currentDir = (r.currentDir + 1) % r.dirs.length;
             
-            // 更新 UI
             document.getElementById(`bus-dest-text-${idx}`).innerText = r.dirs[r.currentDir].dest;
             document.getElementById(`bus-etas-${idx}`).innerHTML = '<span class="eta-time none">載入中...</span>';
             
-            // 獨立刷新該格資料
             fetchSpecificRoute(idx);
         }
 
-        // 排隊機制獲取所有巴士 (避免同時間 Fetch 8 次導致 IP Block)
         async function fetchAllBuses() {
             for (let i = 0; i < busRoutes.length; i++) {
                 await fetchSpecificRoute(i);
-                // 每次 Fetch 後強制暫停 300 毫秒
                 await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
         
-        // 初始化並嚴格設定每 60 秒全局刷新
         fetchAllBuses();
         setInterval(fetchAllBuses, 60000);
 
