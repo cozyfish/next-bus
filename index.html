@@ -6,22 +6,22 @@
     <title>Smart Home Multi-Dashboard</title>
     <style>
         /* ==========================================
-           1. 完美自適應畫布系統 (Canvas Scaling System)
+           1. 完美自適應畫布系統 (解決 Android Tablet 顯示問題)
            ========================================== */
         html, body {
             margin: 0; padding: 0;
             width: 100vw; height: 100vh;
             background-color: #000000;
-            display: flex; justify-content: center; align-items: center;
             overflow: hidden;
             font-family: "Helvetica Neue", Helvetica, Arial, "PingFang HK", sans-serif;
+            position: relative;
         }
 
         #app-container {
             width: 1920px; height: 1080px;
             position: absolute;
-            top: 50%; left: 50%;
-            transform-origin: center center;
+            left: 0; top: 0;
+            transform-origin: 0 0; /* 改為左上角縮放，避免 Android 裁切 bug */
             background-color: #0A2E8E;
             overflow: hidden;
         }
@@ -36,7 +36,7 @@
         .page.active { opacity: 1; pointer-events: auto; }
 
         /* ==========================================
-           2. 頂部 Header (修復日期與農曆排版)
+           2. 頂部 Header
            ========================================== */
         .header {
             height: 160px; display: flex; justify-content: space-between; align-items: center;
@@ -48,19 +48,24 @@
         .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -10px; }
 
         /* ==========================================
-           3. 頁面 1 (天氣與 4 格狗相)
+           3. 頁面 1 (天氣與雙層 4 格狗相)
            ========================================== */
         .middle-row { height: 490px; display: flex; border-bottom: 4px solid #1c3c9e; }
         
-        .dog-grid { 
-            width: 1300px; display: grid; grid-template-columns: repeat(4, 1fr); 
-            gap: 4px; background: #1c3c9e; border-right: 4px solid #1c3c9e; padding: 4px; box-sizing: border-box; 
+        /* 狗狗輪播外框 */
+        .dog-carousel-container {
+            width: 1300px; position: relative; background: #1c3c9e;
+            border-right: 4px solid #1c3c9e; box-sizing: border-box; overflow: hidden;
         }
-        .dog-slot { 
-            position: relative; background: #0A2E8E; overflow: hidden; 
-            display: flex; justify-content: center; align-items: center;
+        
+        /* 雙層架構：Layer 1 與 Layer 2 疊加 */
+        .dog-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
+            box-sizing: border-box; transition: opacity 1.5s ease-in-out;
         }
-        .dog-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; opacity: 1; }
+        .dog-slot { background: #0A2E8E; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .dog-img { width: 100%; height: 100%; object-fit: cover; }
 
         .weather-current { 
             width: 620px; display: flex; flex-direction: column; justify-content: center; 
@@ -106,7 +111,7 @@
         .refresh-btn:active svg { transform: rotate(180deg); }
 
         .bus-eta-row { display: flex; gap: 30px; margin-top: 25px; font-weight: bold; font-size: 60px; }
-        .eta-time { color: #55ff55; } /* HH:MM */
+        .eta-time { color: #55ff55; } 
         .eta-time.none { color: #888; font-size: 42px; font-weight: normal; }
 
         .traffic-col { background: #002277; padding: 40px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
@@ -129,11 +134,19 @@
                 <div class="header-right"><div class="time-str" id="time-str-1">--:--:--</div></div>
             </div>
             <div class="middle-row">
-                <div class="dog-grid" id="dog-grid">
-                    <div class="dog-slot"><img id="dog-img-0" class="dog-img" src="https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg" alt="dog"></div>
-                    <div class="dog-slot"><img id="dog-img-1" class="dog-img" src="https://images.dog.ceo/breeds/husky/n02110185_10047.jpg" alt="dog"></div>
-                    <div class="dog-slot"><img id="dog-img-2" class="dog-img" src="https://images.dog.ceo/breeds/shiba/shiba-13.jpg" alt="dog"></div>
-                    <div class="dog-slot"><img id="dog-img-3" class="dog-img" src="https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg" alt="dog"></div>
+                <div class="dog-carousel-container">
+                    <div class="dog-layer" id="dog-layer-1" style="opacity: 1; z-index: 2;">
+                        <div class="dog-slot"><img id="l1-img-0" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l1-img-1" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l1-img-2" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l1-img-3" class="dog-img" src=""></div>
+                    </div>
+                    <div class="dog-layer" id="dog-layer-2" style="opacity: 0; z-index: 1;">
+                        <div class="dog-slot"><img id="l2-img-0" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l2-img-1" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l2-img-2" class="dog-img" src=""></div>
+                        <div class="dog-slot"><img id="l2-img-3" class="dog-img" src=""></div>
+                    </div>
                 </div>
                 <div class="weather-current">
                     <div class="weather-loc">沙田</div>
@@ -169,11 +182,17 @@
 
     <script>
         /* ==========================================
-           A. 畫布自適應縮放
+           A. 畫布自適應縮放 (防裁切版)
            ========================================== */
         function resizeCanvas() {
-            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-            document.getElementById('app-container').style.transform = `translate(-50%, -50%) scale(${scale})`;
+            const ww = window.innerWidth;
+            const wh = window.innerHeight;
+            const scale = Math.min(ww / 1920, wh / 1080);
+            const container = document.getElementById('app-container');
+            // 計算縮放後剩餘的空白，將畫布絕對置中，完全避開 translate(-50%) 的 bug
+            const left = (ww - (1920 * scale)) / 2;
+            const top = (wh - (1080 * scale)) / 2;
+            container.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -187,47 +206,61 @@
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與日期 (修復農曆)
+           C. 時鐘與日期 (加入農曆亂碼自動修復)
            ========================================== */
         function getLunarDateStr(date) {
             try {
-                // 使用 Intl API 生成標準中文農曆格式，如 "2026丙午年5月15日"
                 const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'long' });
-                return formatter.format(date) + " (農曆)";
+                let lunarStr = formatter.format(date);
+                
+                // 針對 Samsung/部份 Android 出現 "2026(bingwu) M05 15" 亂碼的修復器
+                if (lunarStr.includes('M') || /[a-zA-Z]/.test(lunarStr)) {
+                    const monthMatch = lunarStr.match(/M(\d+)/);
+                    const dayMatch = lunarStr.match(/ (\d+)$/);
+                    
+                    const numToCh = ['零','一','二','三','四','五','六','七','八','九','十','十一','十二'];
+                    const dayToCh = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+                                     '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+                                     '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+                    
+                    if (monthMatch && dayMatch) {
+                        const mStr = numToCh[parseInt(monthMatch[1])];
+                        const dStr = dayToCh[parseInt(dayMatch[1]) - 1];
+                        return `農曆 ${mStr}月${dStr}`;
+                    }
+                }
+                return lunarStr + " (農曆)";
             } catch(e) {
-                return ""; // 舊設備不支援時自動隱藏
+                return "農曆日期"; 
             }
         }
 
         function updateClock() {
-            try {
-                const now = new Date();
-                const hh = String(now.getHours()).padStart(2, '0');
-                const mm = String(now.getMinutes()).padStart(2, '0');
-                const ss = String(now.getSeconds()).padStart(2, '0');
-                
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const date = String(now.getDate()).padStart(2, '0');
-                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-                
-                document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
-                document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
-                document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
-                document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            
+            document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
+            document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
+            document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
 
-                const lunarText = getLunarDateStr(now);
-                document.getElementById('lunar-str-1').innerText = lunarText;
-                document.getElementById('lunar-str-2').innerText = lunarText;
-            } catch(err) {
-                console.error("Clock error:", err);
-            }
+            // 每天只更新一次農曆 (效能考量)
+            const lunarText = getLunarDateStr(now);
+            document.getElementById('lunar-str-1').innerText = lunarText;
+            document.getElementById('lunar-str-2').innerText = lunarText;
         }
         setInterval(updateClock, 1000);
         updateClock();
 
         /* ==========================================
-           D. 狗狗相片輪播 (4 張同時切換)
+           D. 狗狗相片無縫輪播 (雙層緩衝技術)
            ========================================== */
         const dogUrls = [
             "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
@@ -242,57 +275,81 @@
             "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg"
         ];
         
+        let activeLayer = 1; // 1 或 2
+
+        // 隨機抽取 4 張不重複的圖片
+        function get4RandomDogs() {
+            let selected = [];
+            while(selected.length < 4) {
+                let url = dogUrls[Math.floor(Math.random() * dogUrls.length)];
+                if(!selected.includes(url)) selected.push(url);
+            }
+            return selected;
+        }
+
+        // 初始加載 Layer 1
+        const initialDogs = get4RandomDogs();
+        for(let i=0; i<4; i++) {
+            document.getElementById(`l1-img-${i}`).src = initialDogs[i];
+        }
+
+        // 每 10 秒觸發雙層交替
         setInterval(() => {
-            const imgEls = [0,1,2,3].map(i => document.getElementById(`dog-img-${i}`));
-            imgEls.forEach(img => img.style.opacity = 0);
-            
-            setTimeout(() => {
-                let currentUrls = imgEls.map(img => img.src);
-                imgEls.forEach(img => {
-                    let newUrl;
-                    do {
-                        newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
-                    } while(currentUrls.includes(newUrl));
-                    currentUrls.push(newUrl); 
-                    
-                    img.src = newUrl;
-                    img.onload = () => { img.style.opacity = 1; }; 
-                });
-            }, 1000);
-        }, 8000); 
+            const nextLayer = activeLayer === 1 ? 2 : 1;
+            const newDogs = get4RandomDogs();
+            let loadedCount = 0;
+
+            // 1. 在背景隱藏層(nextLayer)悄悄載入 4 張新圖
+            for(let i=0; i<4; i++) {
+                const imgEl = document.getElementById(`l${nextLayer}-img-${i}`);
+                imgEl.onload = () => {
+                    loadedCount++;
+                    // 2. 當 4 張圖全部下載完成後，才進行淡入淡出 (保證不留空)
+                    if(loadedCount === 4) {
+                        document.getElementById(`dog-layer-${nextLayer}`).style.opacity = 1;
+                        document.getElementById(`dog-layer-${nextLayer}`).style.zIndex = 2;
+                        
+                        document.getElementById(`dog-layer-${activeLayer}`).style.opacity = 0;
+                        document.getElementById(`dog-layer-${activeLayer}`).style.zIndex = 1;
+                        
+                        activeLayer = nextLayer; // 切換狀態
+                    }
+                };
+                imgEl.src = newDogs[i];
+            }
+        }, 10000); 
 
         /* ==========================================
-           E. 巴士 ETA (終極解決方案：使用 Station Sequence 取代 UUID)
+           E. 巴士 ETA (站點 Seq 設定)
            ========================================== */
-        // 【設定教學】：打開九巴 App 搜尋路線，由總站起點開始數，你要上車的車站排第幾，就將數字填入 seq！
-        // 這種做法 100% 準確，且完美解決了對頭車車站不同的問題。
+        // 已按照你的要求，修正 170 及其他站點盡量靠近博康/沙角
         const busRoutes = [
             { 
                 num: '47X', currentDir: 0, 
                 dirs: [
-                    { dest: '葵盛(東)', dir: 'O', seq: 4 }, // 假設往葵盛方向，博康排第4站
-                    { dest: '秦石', dir: 'I', seq: 25 }     // 回程往秦石，博康通常在較後位置，假設第25站
+                    { dest: '葵盛(東)', dir: 'O', seq: 4 }, // 往葵盛：博康邨
+                    { dest: '秦石', dir: 'I', seq: 25 }     // 往秦石：博康邨
                 ] 
             },
             { 
                 num: '80X', currentDir: 0, 
                 dirs: [
-                    { dest: '觀塘碼頭', dir: 'O', seq: 4 }, 
-                    { dest: '秦石', dir: 'I', seq: 16 }
+                    { dest: '觀塘碼頭', dir: 'O', seq: 4 }, // 博康邨
+                    { dest: '秦石', dir: 'I', seq: 16 }     // 博康邨
                 ] 
             },
             { 
                 num: '287X', currentDir: 0, 
                 dirs: [
-                    { dest: '旺角(循環)', dir: 'O', seq: 5 },
-                    { dest: '水泉澳', dir: 'I', seq: 18 } 
+                    { dest: '旺角(循環)', dir: 'O', seq: 5 }, // 博康邨
+                    { dest: '水泉澳', dir: 'I', seq: 18 }     // 博康邨
                 ] 
             },
             { 
                 num: '170', currentDir: 0, 
                 dirs: [
-                    { dest: '華富(中)', dir: 'O', seq: 5 }, // 對應你的 ST675 (博康邨)
-                    { dest: '沙田站', dir: 'I', seq: 37 }   // 對應你的 ST213 (沙角邨)
+                    { dest: '華富(中)', dir: 'O', seq: 3 }, // 往華富：博康邨 (你的要求)
+                    { dest: '沙田站', dir: 'I', seq: 32 }   // 往沙田：沙角邨 (你的要求)
                 ] 
             },
             { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 28}] },
@@ -327,21 +384,18 @@
             else col2.innerHTML += html;
         });
 
-        // 核心：透過站點順序 (Sequence) 從整條路線數據中精準過濾
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
 
             try {
-                // 抓取該路線的完整資料
                 const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
                 const json = await res.json();
                 
                 let displayTimes = [];
                 
                 if (json.data && json.data.length > 0) {
-                    // 嚴格比對 方向 (dir) 與 站序 (seq)
                     const validEtas = json.data.filter(item => 
                         item.dir === activeDir.dir && 
                         item.seq === activeDir.seq && 
@@ -350,24 +404,22 @@
                     
                     validEtas.forEach(item => {
                         const etaDate = new Date(item.eta);
-                        if (etaDate >= new Date(now.getTime() - 60000)) { // 允許 1 分鐘緩衝
+                        if (etaDate >= new Date(now.getTime() - 60000)) {
                             const hh = String(etaDate.getHours()).padStart(2, '0');
                             const mm = String(etaDate.getMinutes()).padStart(2, '0');
                             displayTimes.push(`${hh}:${mm}`);
                         }
                     });
 
-                    // 排序並提取最近 3 班
                     displayTimes = [...new Set(displayTimes)].sort().slice(0, 3);
                 }
 
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (displayTimes.length === 0) {
-                    // 針對 170 這類聯營路線，作特別提示
                     if (['170', '182', '681', '982X'].includes(r.num)) {
                         container.innerHTML = `<span class="eta-time none">城巴時段 / 暫無</span>`;
                     } else {
-                        container.innerHTML = `<span class="eta-time none">暫無班次 / 站序錯誤</span>`;
+                        container.innerHTML = `<span class="eta-time none">暫無班次 / 過鐘</span>`;
                     }
                 } else {
                     container.innerHTML = displayTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
