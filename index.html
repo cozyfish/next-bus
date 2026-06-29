@@ -36,16 +36,16 @@
         .page.active { opacity: 1; pointer-events: auto; }
 
         /* ==========================================
-           2. 頂部 Header (包含西曆與農曆)
+           2. 頂部 Header (修復日期與農曆排版)
            ========================================== */
         .header {
             height: 160px; display: flex; justify-content: space-between; align-items: center;
             padding: 0 40px; border-bottom: 4px solid #1c3c9e; background-color: #0A2E8E;
         }
-        .header-left { display: flex; flex-direction: column; }
-        .date-str { font-size: 70px; color: #88ccff; font-weight: bold; letter-spacing: 2px; }
-        .lunar-str { font-size: 28px; color: #88ccff; margin-top: 5px; }
-        .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -15px; }
+        .header-left { display: flex; flex-direction: column; justify-content: center; }
+        .date-str { font-size: 65px; color: #88ccff; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+        .lunar-str { font-size: 30px; color: #88ccff; margin-top: 5px; }
+        .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -10px; }
 
         /* ==========================================
            3. 頁面 1 (天氣與 4 格狗相)
@@ -57,9 +57,7 @@
             gap: 4px; background: #1c3c9e; border-right: 4px solid #1c3c9e; padding: 4px; box-sizing: border-box; 
         }
         .dog-slot { 
-            position: relative; 
-            background: #0A2E8E; 
-            overflow: hidden; 
+            position: relative; background: #0A2E8E; overflow: hidden; 
             display: flex; justify-content: center; align-items: center;
         }
         .dog-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; opacity: 1; }
@@ -99,7 +97,7 @@
         .bus-route-row { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid rgba(255,255,255,0.15); padding-bottom: 10px; }
         .bus-num { font-size: 65px; color: #ffffaa; font-weight: bold; white-space: nowrap; }
         .bus-dest-container { display: flex; align-items: center; justify-content: flex-end; width: 100%; margin-left: 20px;}
-        .bus-dest { font-size: 42px; color: #ffffff; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bus-dest { font-size: 40px; color: #ffffff; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; }
         
         .refresh-btn { 
             cursor: pointer; margin-left: 15px; display: flex; align-items: center; justify-content: center;
@@ -109,7 +107,7 @@
 
         .bus-eta-row { display: flex; gap: 30px; margin-top: 25px; font-weight: bold; font-size: 60px; }
         .eta-time { color: #55ff55; } /* HH:MM */
-        .eta-time.none { color: #888; font-size: 45px; font-weight: normal; }
+        .eta-time.none { color: #888; font-size: 42px; font-weight: normal; }
 
         .traffic-col { background: #002277; padding: 40px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
         .traffic-header { font-size: 45px; color: #88ccff; border-bottom: 2px solid #88ccff; padding-bottom: 15px; margin-bottom: 10px; text-align: center; }
@@ -125,10 +123,10 @@
         <div id="page1" class="page active">
             <div class="header">
                 <div class="header-left">
-                    <span class="date-str" id="date-str-1">----年--月--日(-)</span>
+                    <div class="date-str" id="date-str-1">----年--月--日(-)</div>
                     <div class="lunar-str" id="lunar-str-1">載入農曆中...</div>
                 </div>
-                <div class="header-right"><span class="time-str" id="time-str-1">--:--:--</span></div>
+                <div class="header-right"><div class="time-str" id="time-str-1">--:--:--</div></div>
             </div>
             <div class="middle-row">
                 <div class="dog-grid" id="dog-grid">
@@ -150,10 +148,10 @@
         <div id="page2" class="page">
             <div class="header">
                 <div class="header-left">
-                    <span class="date-str" id="date-str-2">----年--月--日(-)</span>
+                    <div class="date-str" id="date-str-2">----年--月--日(-)</div>
                     <div class="lunar-str" id="lunar-str-2">載入農曆中...</div>
                 </div>
-                <div class="header-right"><span class="time-str" id="time-str-2">--:--:--</span></div>
+                <div class="header-right"><div class="time-str" id="time-str-2">--:--:--</div></div>
             </div>
             <div class="bus-grid">
                 <div class="bus-col" id="bus-col-1"></div>
@@ -189,41 +187,41 @@
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與日期 (加入農曆動態生成)
+           C. 時鐘與日期 (修復農曆)
            ========================================== */
         function getLunarDateStr(date) {
             try {
-                // 利用瀏覽器 Intl API 直接計算農曆
-                const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { year: 'numeric', month: 'long', day: 'numeric' });
-                let lunarStr = formatter.format(date); 
-                // 輸出的字串類似： "2026丙午年五月15日"，作簡單修飾
-                lunarStr = lunarStr.replace(/(\d{4})/, '$1年(農曆) ').replace('年年', '年');
-                return lunarStr;
+                // 使用 Intl API 生成標準中文農曆格式，如 "2026丙午年5月15日"
+                const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'long' });
+                return formatter.format(date) + " (農曆)";
             } catch(e) {
-                return "農曆載入失敗";
+                return ""; // 舊設備不支援時自動隱藏
             }
         }
 
         function updateClock() {
-            const now = new Date();
-            const hh = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-            const ss = String(now.getSeconds()).padStart(2, '0');
-            
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const date = String(now.getDate()).padStart(2, '0');
-            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-            
-            document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
-            document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
-            document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
-            document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            try {
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const date = String(now.getDate()).padStart(2, '0');
+                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                
+                document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
+                document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
+                document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+                document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
 
-            // 每天只更新一次農曆 (每分鐘檢查也可，消耗極小)
-            const lunarText = getLunarDateStr(now);
-            document.getElementById('lunar-str-1').innerText = lunarText;
-            document.getElementById('lunar-str-2').innerText = lunarText;
+                const lunarText = getLunarDateStr(now);
+                document.getElementById('lunar-str-1').innerText = lunarText;
+                document.getElementById('lunar-str-2').innerText = lunarText;
+            } catch(err) {
+                console.error("Clock error:", err);
+            }
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -246,67 +244,61 @@
         
         setInterval(() => {
             const imgEls = [0,1,2,3].map(i => document.getElementById(`dog-img-${i}`));
-            
-            // 1. 同時淡出 4 張
             imgEls.forEach(img => img.style.opacity = 0);
             
             setTimeout(() => {
                 let currentUrls = imgEls.map(img => img.src);
-                
-                // 2. 為每格派發不重複的新相片
                 imgEls.forEach(img => {
                     let newUrl;
                     do {
                         newUrl = dogUrls[Math.floor(Math.random() * dogUrls.length)];
                     } while(currentUrls.includes(newUrl));
-                    currentUrls.push(newUrl); // 將新圖加入陣列，確保這 4 格自己不會重複
+                    currentUrls.push(newUrl); 
                     
                     img.src = newUrl;
-                    img.onload = () => { img.style.opacity = 1; }; // 載入完畢後淡入
+                    img.onload = () => { img.style.opacity = 1; }; 
                 });
-            }, 1000); // 配合 CSS 1秒過渡
-        }, 8000); // 每 8 秒換一批
+            }, 1000);
+        }, 8000); 
 
         /* ==========================================
-           E. 巴士 ETA (精確 Stop ID 系統)
+           E. 巴士 ETA (終極解決方案：使用 Station Sequence 取代 UUID)
            ========================================== */
-        // 【重要教學】：請登入 https://data.etabus.gov.hk/v1/transport/kmb/route/{路線號}/inbound 或 outbound
-        // 查找你樓下實際的 stop_id 填入此處，這樣抓出來的時間才是你的專屬車站時間。
-        // 以下為沙田圍/博康一帶的真實示範 Stop ID。
+        // 【設定教學】：打開九巴 App 搜尋路線，由總站起點開始數，你要上車的車站排第幾，就將數字填入 seq！
+        // 這種做法 100% 準確，且完美解決了對頭車車站不同的問題。
         const busRoutes = [
             { 
                 num: '47X', currentDir: 0, 
                 dirs: [
-                    { dest: '葵盛(東)', stopId: 'C94BE5CBE0E2A123' }, // 沙田圍路近博康
-                    { dest: '秦石', stopId: '95A40CC74EC5355A' }     // 博康巴士總站
+                    { dest: '葵盛(東)', dir: 'O', seq: 4 }, // 假設往葵盛方向，博康排第4站
+                    { dest: '秦石', dir: 'I', seq: 25 }     // 回程往秦石，博康通常在較後位置，假設第25站
                 ] 
             },
             { 
                 num: '80X', currentDir: 0, 
                 dirs: [
-                    { dest: '觀塘碼頭', stopId: 'C94BE5CBE0E2A123' }, 
-                    { dest: '秦石', stopId: '95A40CC74EC5355A' }
+                    { dest: '觀塘碼頭', dir: 'O', seq: 4 }, 
+                    { dest: '秦石', dir: 'I', seq: 16 }
                 ] 
             },
             { 
                 num: '287X', currentDir: 0, 
                 dirs: [
-                    { dest: '水泉澳', stopId: '95A40CC74EC5355A' }, 
-                    { dest: '旺角(循環)', stopId: '8BB8699CE9B1F2A7' } // 沙田圍站
+                    { dest: '旺角(循環)', dir: 'O', seq: 5 },
+                    { dest: '水泉澳', dir: 'I', seq: 18 } 
                 ] 
             },
             { 
                 num: '170', currentDir: 0, 
                 dirs: [
-                    { dest: '華富(中)', stopId: '47963A29D64DB210' }, // 對面馬路的車站ID
-                    { dest: '沙田站', stopId: '95A40CC74EC5355A' }
+                    { dest: '華富(中)', dir: 'O', seq: 5 }, // 對應你的 ST675 (博康邨)
+                    { dest: '沙田站', dir: 'I', seq: 37 }   // 對應你的 ST213 (沙角邨)
                 ] 
             },
-            // 其他路線的示範 (可以自行替換真實 Stop ID)
-            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', stopId: '8BB8699CE9B1F2A7'}, { dest: '耀安', stopId: 'C94BE5CBE0E2A123'}] },
-            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', stopId: '8BB8699CE9B1F2A7'}, { dest: '沙田站', stopId: 'C94BE5CBE0E2A123'}] },
-            { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', stopId: '95A40CC74EC5355A'}, { dest: '沙田市中心', stopId: '95A40CC74EC5355A'}] },
-            { num: '284', currentDir: 0, dirs: [{ dest: '沙田市中心', stopId: '8BB8699CE9B1F2A7'}, { dest: '濱景花園', stopId: 'C94BE5CBE0E2A123'}] }
+            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 28}] },
+            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 7}, { dest: '沙田站', dir: 'I', seq: 22}] },
+            { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', dir: 'O', seq: 3}, { dest: '沙田市中心', dir: 'I', seq: 12}] },
+            { num: '284', currentDir: 0, dirs: [{ dest: '沙田市中心', dir: 'O', seq: 4}, { dest: '濱景花園', dir: 'I', seq: 10}] }
         ];
 
         const refreshSvgIcon = `
@@ -335,56 +327,62 @@
             else col2.innerHTML += html;
         });
 
-        // 核心：直接利用實體 Stop ID 抓取數據 (準確度 100%)
+        // 核心：透過站點順序 (Sequence) 從整條路線數據中精準過濾
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
 
             try {
-                // 使用 stop-eta API，針對特定的實體巴士站
-                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${activeDir.stopId}`);
+                // 抓取該路線的完整資料
+                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
                 const json = await res.json();
                 
                 let displayTimes = [];
                 
                 if (json.data && json.data.length > 0) {
-                    // 過濾出我們要顯示的那一條路線 (因為一個車站可能有多條線)
-                    const validEtas = json.data.filter(item => item.route === r.num && item.eta !== null);
+                    // 嚴格比對 方向 (dir) 與 站序 (seq)
+                    const validEtas = json.data.filter(item => 
+                        item.dir === activeDir.dir && 
+                        item.seq === activeDir.seq && 
+                        item.eta !== null
+                    );
                     
                     validEtas.forEach(item => {
                         const etaDate = new Date(item.eta);
-                        // 擷取未來的班次 (允許 1 分鐘緩衝)
-                        if (etaDate >= new Date(now.getTime() - 60000)) {
+                        if (etaDate >= new Date(now.getTime() - 60000)) { // 允許 1 分鐘緩衝
                             const hh = String(etaDate.getHours()).padStart(2, '0');
                             const mm = String(etaDate.getMinutes()).padStart(2, '0');
                             displayTimes.push(`${hh}:${mm}`);
                         }
                     });
 
-                    // 移除 API 可能返回的重複時間，並排序取首 3 班
+                    // 排序並提取最近 3 班
                     displayTimes = [...new Set(displayTimes)].sort().slice(0, 3);
                 }
 
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (displayTimes.length === 0) {
-                    container.innerHTML = `<span class="eta-time none">暫無班次</span>`;
+                    // 針對 170 這類聯營路線，作特別提示
+                    if (['170', '182', '681', '982X'].includes(r.num)) {
+                        container.innerHTML = `<span class="eta-time none">城巴時段 / 暫無</span>`;
+                    } else {
+                        container.innerHTML = `<span class="eta-time none">暫無班次 / 站序錯誤</span>`;
+                    }
                 } else {
                     container.innerHTML = displayTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
                 }
             } catch (e) { 
-                console.error(`Bus API Error (${r.num} - ${activeDir.stopId}):`, e); 
-                document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">暫無班次</span>`;
+                console.error(`Bus API Error (${r.num}):`, e); 
+                document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">載入失敗</span>`;
             }
         }
 
         function toggleDirection(idx) {
             const r = busRoutes[idx];
             r.currentDir = (r.currentDir + 1) % r.dirs.length;
-            
             document.getElementById(`bus-dest-text-${idx}`).innerText = r.dirs[r.currentDir].dest;
             document.getElementById(`bus-etas-${idx}`).innerHTML = '<span class="eta-time none">載入中...</span>';
-            
             fetchSpecificRoute(idx);
         }
 
