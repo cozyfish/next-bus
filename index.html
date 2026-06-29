@@ -57,7 +57,6 @@
             border-right: 4px solid #1c3c9e; box-sizing: border-box; overflow: hidden;
         }
         
-        /* 配合 3 秒輪播，將過場動畫調快至 0.8s */
         .dog-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
@@ -170,10 +169,10 @@
                 <div class="bus-col" id="bus-col-2"></div>
                 <div class="traffic-col">
                     <div class="traffic-header">沙田區 隧道預計時間</div>
-                    <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time">12<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>大老山隧道</span><span class="traffic-time">15<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>城門隧道</span><span class="traffic-time">10<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time">08<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time" id="tunnel-lion">--<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>大老山隧道</span><span class="traffic-time" id="tunnel-tates">--<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>城門隧道</span><span class="traffic-time" id="tunnel-shingmun">--<span>分鐘</span></span></div>
+                    <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time" id="tunnel-eagle">--<span>分鐘</span></span></div>
                 </div>
             </div>
         </div>
@@ -200,34 +199,29 @@
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與完美農曆引擎 (解決 M05 15 亂碼)
+           C. 時鐘與完美農曆引擎
            ========================================== */
         function getPerfectLunarDateStr(date) {
             try {
                 const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'full' });
-                let rawStr = formatter.format(date); // e.g. "2026丙午年五月十五日星期一" 或亂碼
+                let rawStr = formatter.format(date); 
                 
-                // 1. 提取天干地支
                 let stemBranch = "丙午";
                 const sbMatch = rawStr.match(/(\w{2})年/);
                 if (sbMatch) stemBranch = sbMatch[1];
 
-                // 2. 自動配對生肖
                 const zodiacMap = {'子':'鼠','丑':'牛','寅':'虎','卯':'兔','辰':'龍','巳':'蛇','午':'馬','未':'羊','申':'猴','酉':'雞','戌':'狗','亥':'豬'};
                 const zodiac = zodiacMap[stemBranch.charAt(1)] || "馬";
 
-                // 3. 提取月份與日子 (並利用正則表達式強行翻譯 Tab S7 亂碼)
                 let monthDayStr = "五月十五";
                 const mdMatch = rawStr.match(/年(.+?)日/);
                 if (mdMatch) {
                     monthDayStr = mdMatch[1];
-                    // 翻譯 M05 等英文代碼
                     monthDayStr = monthDayStr
                         .replace('M01', '正月').replace('M02', '二月').replace('M03', '三月').replace('M04', '四月')
                         .replace('M05', '五月').replace('M06', '六月').replace('M07', '七月').replace('M08', '八月')
                         .replace('M09', '九月').replace('M10', '十月').replace('M11', '十一月').replace('M12', '十二月');
                     
-                    // 翻譯 1-30 數字日子為中文
                     const dayCh = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
                                   '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
                                   '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
@@ -238,7 +232,7 @@
 
                 return `農曆 ${stemBranch} ${zodiac}年 ${monthDayStr}`;
             } catch(e) {
-                return "農曆 丙午 馬年 五月十五"; // 終極 Fallback
+                return "農曆 丙午 馬年 五月十五"; 
             }
         }
 
@@ -297,7 +291,6 @@
             document.getElementById(`l1-img-${i}`).src = initialDogs[i];
         }
 
-        // 修改為 3000ms (3 秒) 輪播
         setInterval(() => {
             const nextLayer = activeLayer === 1 ? 2 : 1;
             const newDogs = get4RandomDogs();
@@ -324,11 +317,7 @@
         /* ==========================================
            E. 巴士 ETA (加入時間精準修正系統)
            ========================================== */
-        
-        // 【重要：時間微調區】
-        // 如果你發現面板顯示的時間，比九巴 App 慢了 1 分鐘，請保持 -1。
-        // 如果想加快或減慢，可以改為 0, +1, -2 等。
-        const ETA_OFFSET_MINUTES = -1; 
+        const ETA_OFFSET_MINUTES = -1; // 預設扣減 1 分鐘，可改為 0 或 +1 作微調
 
         const busRoutes = [
             { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 25 }] },
@@ -386,7 +375,6 @@
                     );
                     
                     validEtas.forEach(item => {
-                        // 針對 API 延遲，加上/減去指定的 offset 分鐘數
                         const originalTimeMs = new Date(item.eta).getTime();
                         const adjustedEtaDate = new Date(originalTimeMs + (ETA_OFFSET_MINUTES * 60000));
                         
@@ -479,6 +467,55 @@
         }
         setInterval(fetchWeather, 5 * 60 * 1000);
         fetchWeather();
+
+        /* ==========================================
+           G. 隧道預計時間 (接駁真實 TDAS API)
+           ========================================== */
+        async function fetchTunnelTime(startLat, startLng, endLat, endLng, elementId) {
+            try {
+                const response = await fetch('https://tdas-api.hkemobility.gov.hk/tdas/api/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        start: { lat: startLat, long: startLng },
+                        end: { lat: endLat, long: endLng },
+                        departIn: 0,
+                        lang: "tc",
+                        type: "ST" // Shortest Time (最短時間)
+                    })
+                });
+                const data = await response.json();
+                if (data && data.eta) {
+                    // API 返回格式為 "00:15"，轉換為純數字的分鐘
+                    const parts = data.eta.split(':');
+                    const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+                    document.getElementById(elementId).innerHTML = `${mins}<span>分鐘</span>`;
+                }
+            } catch (e) {
+                console.error("Tunnel API Error:", e);
+                document.getElementById(elementId).innerHTML = `--<span>分鐘</span>`;
+            }
+        }
+
+        async function fetchAllTunnels() {
+            // 獅子山隧道 (沙田 -> 九龍塘)
+            await fetchTunnelTime(22.3687, 114.1866, 22.3396, 114.1764, 'tunnel-lion');
+            await new Promise(r => setTimeout(r, 300));
+            
+            // 大老山隧道 (沙田 -> 彩虹/九龍灣)
+            await fetchTunnelTime(22.3820, 114.2045, 22.3364, 114.2057, 'tunnel-tates');
+            await new Promise(r => setTimeout(r, 300));
+            
+            // 城門隧道 (沙田 -> 荃灣)
+            await fetchTunnelTime(22.3807, 114.1751, 22.3784, 114.1311, 'tunnel-shingmun');
+            await new Promise(r => setTimeout(r, 300));
+            
+            // 尖山隧道 (沙田 -> 長沙灣)
+            await fetchTunnelTime(22.3698, 114.1670, 22.3360, 114.1481, 'tunnel-eagle');
+        }
+
+        fetchAllTunnels();
+        setInterval(fetchAllTunnels, 3 * 60 * 1000); // 隧道時間每 3 分鐘更新一次
     </script>
 </body>
 </html>
