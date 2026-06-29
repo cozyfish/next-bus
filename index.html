@@ -199,24 +199,26 @@
         }, 15000);
 
         /* ==========================================
-           C. 時鐘與完美農曆引擎
+           C. 時鐘與完美農曆引擎 (符合「農曆 丙午 馬年 五月十五」格式)
            ========================================== */
         function getPerfectLunarDateStr(date) {
             try {
                 const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'full' });
                 let rawStr = formatter.format(date); 
                 
-                let stemBranch = "丙午";
+                let stemBranch = "丙午"; // Fallback
                 const sbMatch = rawStr.match(/(\w{2})年/);
                 if (sbMatch) stemBranch = sbMatch[1];
 
+                // 自動配對生肖
                 const zodiacMap = {'子':'鼠','丑':'牛','寅':'虎','卯':'兔','辰':'龍','巳':'蛇','午':'馬','未':'羊','申':'猴','酉':'雞','戌':'狗','亥':'豬'};
                 const zodiac = zodiacMap[stemBranch.charAt(1)] || "馬";
 
-                let monthDayStr = "五月十五";
+                let monthDayStr = "五月十五"; // Fallback
                 const mdMatch = rawStr.match(/年(.+?)日/);
                 if (mdMatch) {
                     monthDayStr = mdMatch[1];
+                    // 翻譯亂碼
                     monthDayStr = monthDayStr
                         .replace('M01', '正月').replace('M02', '二月').replace('M03', '三月').replace('M04', '四月')
                         .replace('M05', '五月').replace('M06', '六月').replace('M07', '七月').replace('M08', '八月')
@@ -230,6 +232,7 @@
                     });
                 }
 
+                // 完美輸出指定的格式
                 return `農曆 ${stemBranch} ${zodiac}年 ${monthDayStr}`;
             } catch(e) {
                 return "農曆 丙午 馬年 五月十五"; 
@@ -291,6 +294,7 @@
             document.getElementById(`l1-img-${i}`).src = initialDogs[i];
         }
 
+        // 修改為嚴格 3 秒 (3000ms) 輪播一次
         setInterval(() => {
             const nextLayer = activeLayer === 1 ? 2 : 1;
             const newDogs = get4RandomDogs();
@@ -315,19 +319,24 @@
         }, 3000); 
 
         /* ==========================================
-           E. 巴士 ETA (加入時間精準修正系統)
+           E. 巴士 ETA (全線修正為博康/沙角)
            ========================================== */
-        const ETA_OFFSET_MINUTES = -1; // 預設扣減 1 分鐘，可改為 0 或 +1 作微調
+        
+        // 【時間時差修正區】
+        // 為了補償你提到的 1 分鐘延遲，現在設定為 -2 (即將時間主動扣減 2 分鐘)。
+        // 如果扣太多變成了太快，請改回 -1；如果不夠，可以改為 -3。
+        const ETA_OFFSET_MINUTES = -2; 
 
+        // 路線站點順序已根據你的要求，全數鎖定在「博康邨」或「沙角邨」
         const busRoutes = [
-            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 25 }] },
-            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 16 }] },
-            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 5 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
+            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 24 }] },
+            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 15 }] },
+            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 4 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
             { num: '170', currentDir: 0, dirs: [{ dest: '華富(中)', dir: 'O', seq: 3 }, { dest: '沙田站', dir: 'I', seq: 32 }] },
-            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 28}] },
-            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 7}, { dest: '沙田站', dir: 'I', seq: 22}] },
-            { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', dir: 'O', seq: 3}, { dest: '沙田市中心', dir: 'I', seq: 12}] },
-            { num: '284', currentDir: 0, dirs: [{ dest: '沙田市中心', dir: 'O', seq: 4}, { dest: '濱景花園', dir: 'I', seq: 10}] }
+            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 22}] },
+            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 6}, { dest: '沙田站', dir: 'I', seq: 20}] },
+            { num: '282', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', seq: 5}, { dest: '沙田市中心', dir: 'I', seq: 11}] }, // 新田圍為循環線
+            { num: '284', currentDir: 0, dirs: [{ dest: '濱景花園', dir: 'O', seq: 6}, { dest: '沙田市中心', dir: 'I', seq: 13}] }
         ];
 
         const refreshSvgIcon = `
@@ -376,6 +385,7 @@
                     
                     validEtas.forEach(item => {
                         const originalTimeMs = new Date(item.eta).getTime();
+                        // 注入微調的時差補償
                         const adjustedEtaDate = new Date(originalTimeMs + (ETA_OFFSET_MINUTES * 60000));
                         
                         if (adjustedEtaDate >= new Date(now.getTime() - 60000)) {
@@ -469,7 +479,7 @@
         fetchWeather();
 
         /* ==========================================
-           G. 隧道預計時間 (接駁真實 TDAS API)
+           G. 隧道預計時間 (TDAS API)
            ========================================== */
         async function fetchTunnelTime(startLat, startLng, endLat, endLng, elementId) {
             try {
@@ -479,43 +489,32 @@
                     body: JSON.stringify({
                         start: { lat: startLat, long: startLng },
                         end: { lat: endLat, long: endLng },
-                        departIn: 0,
-                        lang: "tc",
-                        type: "ST" // Shortest Time (最短時間)
+                        departIn: 0, lang: "tc", type: "ST"
                     })
                 });
                 const data = await response.json();
                 if (data && data.eta) {
-                    // API 返回格式為 "00:15"，轉換為純數字的分鐘
                     const parts = data.eta.split(':');
                     const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
                     document.getElementById(elementId).innerHTML = `${mins}<span>分鐘</span>`;
                 }
             } catch (e) {
-                console.error("Tunnel API Error:", e);
                 document.getElementById(elementId).innerHTML = `--<span>分鐘</span>`;
             }
         }
 
         async function fetchAllTunnels() {
-            // 獅子山隧道 (沙田 -> 九龍塘)
             await fetchTunnelTime(22.3687, 114.1866, 22.3396, 114.1764, 'tunnel-lion');
             await new Promise(r => setTimeout(r, 300));
-            
-            // 大老山隧道 (沙田 -> 彩虹/九龍灣)
             await fetchTunnelTime(22.3820, 114.2045, 22.3364, 114.2057, 'tunnel-tates');
             await new Promise(r => setTimeout(r, 300));
-            
-            // 城門隧道 (沙田 -> 荃灣)
             await fetchTunnelTime(22.3807, 114.1751, 22.3784, 114.1311, 'tunnel-shingmun');
             await new Promise(r => setTimeout(r, 300));
-            
-            // 尖山隧道 (沙田 -> 長沙灣)
             await fetchTunnelTime(22.3698, 114.1670, 22.3360, 114.1481, 'tunnel-eagle');
         }
 
         fetchAllTunnels();
-        setInterval(fetchAllTunnels, 3 * 60 * 1000); // 隧道時間每 3 分鐘更新一次
+        setInterval(fetchAllTunnels, 3 * 60 * 1000); 
     </script>
 </body>
 </html>
