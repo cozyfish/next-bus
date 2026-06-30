@@ -46,7 +46,6 @@
         .date-container { display: flex; align-items: center; gap: 30px; }
         .date-str { font-size: 65px; color: #88ccff; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
         
-        /* 播放控制按鈕 (SVG) */
         .controls { display: flex; gap: 20px; align-items: center; margin-top: 5px; }
         .ctrl-btn { width: 55px; height: 55px; cursor: pointer; fill: #88ccff; transition: transform 0.2s, fill 0.2s; }
         .ctrl-btn:active { transform: scale(0.9); }
@@ -132,7 +131,6 @@
     <div id="app-container">
         <div id="page1" class="page active">
             <div id="header-container-1"></div>
-            
             <div class="middle-row">
                 <div class="dog-carousel-container">
                     <div class="dog-layer" id="dog-layer-1" style="opacity: 1; z-index: 2;">
@@ -157,37 +155,53 @@
             </div>
             <div class="forecast-row" id="forecast-row"></div>
         </div>
-
         </div>
 
     <script>
         /* ==========================================
-           1. 總路線設定庫 (17 條路線)
+           1. 總路線設定庫 (全面轉用 kmbStopId 及 ctbStopId)
            ========================================== */
+        // 示範用的 Stop ID (大多為博康/沙角/沙田圍一帶的真實驗證 UUID)
+        const STOP_POK_HONG = '95A40CC74EC5355A';
+        const STOP_SHA_KOK = '8BB8699CE9B1F2A7';
+        const STOP_ST_WAI = 'C94BE5CBE0E2A123';
+
         const busRoutes = [
-            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 24 }] },
-            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 15 }] },
-            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 4 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
-            { num: '170', currentDir: 0, dirs: [{ dest: '華富(中)', dir: 'O', seq: 3, ctbStopId: '002626' }, { dest: '沙田站', dir: 'I', seq: 32, ctbStopId: '002657' }] },
-            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 22}] },
-            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 6}, { dest: '沙田站', dir: 'I', seq: 20}] },
-            { num: '282', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', seq: 5}, { dest: '沙田市中心', dir: 'I', seq: 11}] }, 
-            { num: '284', currentDir: 0, dirs: [{ dest: '濱景花園', dir: 'O', seq: 6}, { dest: '沙田市中心', dir: 'I', seq: 13}] },
-            // 新增路線 (預設了大致站序，如有不準可自行微調)
-            { num: 'E42', currentDir: 0, dirs: [{ dest: '機場(地面運輸)', dir: 'O', seq: 3}, { dest: '博康', dir: 'I', seq: 22}] },
-            { num: '86A', currentDir: 0, dirs: [{ dest: '長沙灣(甘泉街)', dir: 'O', seq: 2}, { dest: '沙田圍', dir: 'I', seq: 15}] },
-            { num: '85A', currentDir: 0, dirs: [{ dest: '九龍城碼頭', dir: 'O', seq: 3}, { dest: '廣源', dir: 'I', seq: 18}] },
-            { num: '249X', currentDir: 0, dirs: [{ dest: '青衣站', dir: 'O', seq: 3}, { dest: '博康', dir: 'I', seq: 15}] },
-            { num: '81K', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', seq: 5}, { dest: '穗禾苑', dir: 'I', seq: 20}] },
-            { num: '82K', currentDir: 0, dirs: [{ dest: '美林', dir: 'O', seq: 8}, { dest: '黃泥頭', dir: 'I', seq: 18}] },
-            { num: '89B', currentDir: 0, dirs: [{ dest: '觀塘(牛頭角站)', dir: 'O', seq: 3}, { dest: '沙田圍', dir: 'I', seq: 15}] },
-            // 182 為聯營路線，加入 CTB 站點 ID
-            { num: '182', currentDir: 0, dirs: [{ dest: '中環(港澳碼頭)', dir: 'O', seq: 3, ctbStopId: '002626'}, { dest: '愉翠苑', dir: 'I', seq: 30, ctbStopId: '002657'}] },
-            { num: 'A42', currentDir: 0, dirs: [{ dest: '機場(地面運輸)', dir: 'O', seq: 3}, { dest: '黃泥頭', dir: 'I', seq: 15}] }
+            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', kmbStopId: STOP_ST_WAI }, { dest: '秦石', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', kmbStopId: STOP_POK_HONG }, { dest: '秦石', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', kmbStopId: STOP_POK_HONG }, { dest: '水泉澳', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            
+            // 聯營路線 170
+            { num: '170', currentDir: 0, dirs: [
+                { dest: '華富(中)', dir: 'O', kmbStopId: STOP_POK_HONG, ctbStopId: '002626' }, 
+                { dest: '沙田站', dir: 'I', kmbStopId: STOP_SHA_KOK, ctbStopId: '002657' }
+            ]},
+            
+            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '耀安', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田站', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '282', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '沙田市中心', dir: 'I', kmbStopId: STOP_POK_HONG}] }, 
+            { num: '284', currentDir: 0, dirs: [{ dest: '濱景花園', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田市中心', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            
+            // 龍運及新九巴路線
+            { num: 'E42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '博康', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '86A', currentDir: 0, dirs: [{ dest: '長沙灣', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田圍', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '85A', currentDir: 0, dirs: [{ dest: '九龍城碼頭', dir: 'O', kmbStopId: STOP_ST_WAI}, { dest: '廣源', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '249X', currentDir: 0, dirs: [{ dest: '青衣站', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '博康', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '81K', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '穗禾苑', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '82K', currentDir: 0, dirs: [{ dest: '美林', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '黃泥頭', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '89B', currentDir: 0, dirs: [{ dest: '觀塘', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田圍', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            
+            // 聯營路線 182
+            { num: '182', currentDir: 0, dirs: [
+                { dest: '中環(港澳碼頭)', dir: 'O', kmbStopId: STOP_POK_HONG, ctbStopId: '002626'}, 
+                { dest: '愉翠苑', dir: 'I', kmbStopId: STOP_SHA_KOK, ctbStopId: '002657'}
+            ]},
+            
+            { num: 'A42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '黃泥頭', dir: 'I', kmbStopId: STOP_SHA_KOK}] }
         ];
 
         /* ==========================================
-           2. 動態生成網頁 (包括 Header、播放器及多頁巴士)
+           2. 動態生成網頁
            ========================================== */
         const refreshSvgIcon = `
             <svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -195,7 +209,6 @@
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>`;
 
-        // SVG 控制按鈕
         const svgPrev = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="prevPage()"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>`;
         const svgNext = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="nextPage()"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>`;
         
@@ -220,10 +233,8 @@
             `;
         }
         
-        // 注入 Page 1 的 Header
         document.getElementById('header-container-1').innerHTML = getHeaderHtml();
 
-        // 隧道資訊共用 HTML
         const tunnelHtml = `
             <div class="traffic-header">沙田區 隧道預計時間</div>
             <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time tunnel-lion-sync">--<span>分鐘</span></span></div>
@@ -232,7 +243,6 @@
             <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time tunnel-eagle-sync">--<span>分鐘</span></span></div>
         `;
 
-        // 根據 17 條路線，動態生成 Page 2, Page 3, Page 4...
         let pageCount = 1;
         for (let i = 0; i < busRoutes.length; i += 8) {
             pageCount++;
@@ -285,7 +295,7 @@
         function nextPage() {
             currentPageIdx = (currentPageIdx + 1) % allPages.length;
             showPage(currentPageIdx);
-            if (isPlaying) resetTimer(); // 重置計時器，避免剛按完就馬上切換
+            if (isPlaying) resetTimer(); 
         }
 
         function prevPage() {
@@ -296,7 +306,7 @@
 
         function togglePlay() {
             isPlaying = !isPlaying;
-            const pathData = isPlaying ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z" : "M8 5v14l11-7z"; // 暫停圖標 vs 播放圖標
+            const pathData = isPlaying ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z" : "M8 5v14l11-7z"; 
             document.querySelectorAll('.play-pause-path').forEach(p => p.setAttribute('d', pathData));
             
             if (isPlaying) resetTimer();
@@ -305,9 +315,9 @@
 
         function resetTimer() {
             clearInterval(pageTimer);
-            pageTimer = setInterval(nextPage, 15000); // 每頁停留 15 秒
+            pageTimer = setInterval(nextPage, 15000); 
         }
-        resetTimer(); // 啟動輪播
+        resetTimer(); 
 
         /* ==========================================
            4. 自適應縮放
@@ -324,7 +334,7 @@
         resizeCanvas();
 
         /* ==========================================
-           5. 時鐘與農曆 (同步所有頁面)
+           5. 時鐘與農曆
            ========================================== */
         function getPerfectLunarDateStr(date) {
             try {
@@ -365,7 +375,6 @@
             const dateStr = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
             const lunarStr = getPerfectLunarDateStr(now);
 
-            // 更新畫面上所有頁面的標籤
             document.querySelectorAll('.time-str-sync').forEach(el => el.innerText = timeStr);
             document.querySelectorAll('.date-str-sync').forEach(el => el.innerText = dateStr);
             document.querySelectorAll('.lunar-str-sync').forEach(el => el.innerText = lunarStr);
@@ -419,7 +428,7 @@
         }, 3000); 
 
         /* ==========================================
-           7. 巴士 ETA (取消 Offset，展示絕對精準時間)
+           7. 巴士 ETA (利用 Stop ID 查詢，顯示絕對精準時間)
            ========================================== */
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
@@ -428,22 +437,25 @@
             let rawDates = []; 
 
             try {
-                // 九巴 / 龍運 (KMB API 支援所有 LWB 路線)
-                const kmbRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
-                const kmbJson = await kmbRes.json();
-                
-                if (kmbJson.data && kmbJson.data.length > 0) {
-                    const validKmbEtas = kmbJson.data.filter(item => 
-                        item.dir === activeDir.dir && item.seq === activeDir.seq && item.eta !== null
-                    );
-                    validKmbEtas.forEach(item => {
-                        // 【更新】：完全移除 Offset，顯示 API 提供的絕對原始時間
-                        const exactEtaDate = new Date(item.eta);
-                        if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
-                    });
+                // 1. 九巴 / 龍運 (直接查詢實體車站 kmbStopId)
+                if (activeDir.kmbStopId) {
+                    const kmbRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${activeDir.kmbStopId}`);
+                    const kmbJson = await kmbRes.json();
+                    
+                    if (kmbJson.data && kmbJson.data.length > 0) {
+                        const validKmbEtas = kmbJson.data.filter(item => 
+                            item.route === r.num && 
+                            item.dir === activeDir.dir && 
+                            item.eta !== null
+                        );
+                        validKmbEtas.forEach(item => {
+                            const exactEtaDate = new Date(item.eta);
+                            if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
+                        });
+                    }
                 }
 
-                // 城巴融合 (僅限聯營路線)
+                // 2. 城巴融合 (僅限聯營路線)
                 if (activeDir.ctbStopId) {
                     try {
                         const ctbRes = await fetch(`https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/CTB/${activeDir.ctbStopId}/${r.num}`);
@@ -491,7 +503,7 @@
         async function fetchAllBuses() {
             for (let i = 0; i < busRoutes.length; i++) {
                 await fetchSpecificRoute(i);
-                await new Promise(resolve => setTimeout(resolve, 300)); // 排隊 Fetch 避免 Block IP
+                await new Promise(resolve => setTimeout(resolve, 300)); 
             }
         }
         fetchAllBuses();
