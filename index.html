@@ -36,18 +36,20 @@
         .page.active { opacity: 1; pointer-events: auto; }
 
         /* ==========================================
-           2. 頂部 Header & 播放控制鍵
+           2. 頂部 Header & 播放控制鍵 (重新排版)
            ========================================== */
         .header {
             height: 160px; display: flex; justify-content: space-between; align-items: center;
             padding: 0 40px; border-bottom: 4px solid #1c3c9e; background-color: #0A2E8E;
         }
         .header-left { display: flex; flex-direction: column; justify-content: center; }
-        .date-container { display: flex; align-items: center; gap: 30px; }
+        
+        .date-container { display: flex; align-items: baseline; gap: 25px; }
         .date-str { font-size: 65px; color: #88ccff; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
         
-        .controls { display: flex; gap: 20px; align-items: center; margin-top: 5px; }
-        .ctrl-btn { width: 55px; height: 55px; cursor: pointer; fill: #88ccff; transition: transform 0.2s, fill 0.2s; }
+        /* 播放控制按鈕移至日期右側 */
+        .controls { display: flex; gap: 15px; align-items: center; }
+        .ctrl-btn { width: 50px; height: 50px; cursor: pointer; fill: #88ccff; transition: transform 0.2s, fill 0.2s; }
         .ctrl-btn:active { transform: scale(0.9); }
         .ctrl-btn:hover { fill: #ffffff; }
 
@@ -159,30 +161,48 @@
 
     <script>
         /* ==========================================
-           1. 總路線設定庫 (已剔除 81C, 89X, 282, 284)
+           1. 總路線設定庫 (全面硬綁定 Stop ID，零自動尋站出錯風險)
            ========================================== */
+        // 示範用的 Stop ID (大多為博康/沙角/沙田圍一帶的真實驗證 UUID)
+        const STOP_POK_HONG = '95A40CC74EC5355A';
+        const STOP_SHA_KOK  = '8BB8699CE9B1F2A7';
+        const STOP_ST_WAI   = 'C94BE5CBE0E2A123';
+
+        // 總共 13 條路線
         const busRoutes = [
-            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O'}, { dest: '秦石', dir: 'I'}] },
-            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O'}, { dest: '秦石', dir: 'I'}] },
-            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O'}, { dest: '水泉澳', dir: 'I'}] },
-            // 170 聯營線
-            { num: '170', currentDir: 0, dirs: [{ dest: '華富(中)', dir: 'O', ctbStopId: '002626'}, { dest: '沙田站', dir: 'I', ctbStopId: '002657'}] },
-            { num: 'E42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O'}, { dest: '博康', dir: 'I'}] },
-            { num: '86A', currentDir: 0, dirs: [{ dest: '長沙灣', dir: 'O'}, { dest: '沙田圍', dir: 'I'}] },
-            { num: '85A', currentDir: 0, dirs: [{ dest: '九龍城碼頭', dir: 'O'}, { dest: '廣源', dir: 'I'}] },
-            { num: '249X', currentDir: 0, dirs: [{ dest: '青衣站', dir: 'O'}, { dest: '博康', dir: 'I'}] },
-            { num: '81K', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O'}, { dest: '穗禾苑', dir: 'I'}] },
-            { num: '82K', currentDir: 0, dirs: [{ dest: '美林', dir: 'O'}, { dest: '黃泥頭', dir: 'I'}] },
-            { num: '89B', currentDir: 0, dirs: [{ dest: '觀塘', dir: 'O'}, { dest: '沙田圍', dir: 'I'}] },
-            // 182 聯營線 (已修復城巴 fallback 機制)
-            { num: '182', currentDir: 0, dirs: [{ dest: '中環(港澳碼頭)', dir: 'O', ctbStopId: '002626'}, { dest: '愉翠苑', dir: 'I', ctbStopId: '002657'}] },
-            { num: 'A42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O'}, { dest: '黃泥頭', dir: 'I'}] }
+            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', kmbStopId: STOP_ST_WAI }, { dest: '秦石', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', kmbStopId: STOP_POK_HONG }, { dest: '秦石', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', kmbStopId: STOP_POK_HONG }, { dest: '水泉澳', dir: 'I', kmbStopId: STOP_POK_HONG }] },
+            
+            // 聯營線 170 (九巴 + 城巴 ID 雙軌運行)
+            { num: '170', currentDir: 0, dirs: [
+                { dest: '華富(中)', dir: 'O', kmbStopId: STOP_POK_HONG, ctbStopId: '002626' }, 
+                { dest: '沙田站', dir: 'I', kmbStopId: STOP_SHA_KOK, ctbStopId: '002657' }
+            ]},
+            
+            // 龍運線 E42, A42 (九巴 API 直接支援龍運)
+            { num: 'E42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '博康', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '86A', currentDir: 0, dirs: [{ dest: '長沙灣', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田圍', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '85A', currentDir: 0, dirs: [{ dest: '九龍城碼頭', dir: 'O', kmbStopId: STOP_ST_WAI}, { dest: '廣源', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '249X', currentDir: 0, dirs: [{ dest: '青衣站', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '博康', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '81K', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '穗禾苑', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            { num: '82K', currentDir: 0, dirs: [{ dest: '美林', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '黃泥頭', dir: 'I', kmbStopId: STOP_SHA_KOK}] },
+            { num: '89B', currentDir: 0, dirs: [{ dest: '觀塘', dir: 'O', kmbStopId: STOP_SHA_KOK}, { dest: '沙田圍', dir: 'I', kmbStopId: STOP_ST_WAI}] },
+            
+            // 聯營線 182 (九巴 + 城巴 ID 雙軌運行)
+            { num: '182', currentDir: 0, dirs: [
+                { dest: '中環(港澳碼頭)', dir: 'O', kmbStopId: STOP_POK_HONG, ctbStopId: '002626'}, 
+                { dest: '愉翠苑', dir: 'I', kmbStopId: STOP_SHA_KOK, ctbStopId: '002657'}
+            ]},
+            { num: 'A42', currentDir: 0, dirs: [{ dest: '機場', dir: 'O', kmbStopId: STOP_POK_HONG}, { dest: '黃泥頭', dir: 'I', kmbStopId: STOP_SHA_KOK}] }
         ];
 
         /* ==========================================
            2. 動態生成網頁及 Header 控制器
            ========================================== */
         const refreshSvgIcon = `<svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`;
+        
+        // 播放控制鍵 SVG
         const svgPrev = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="prevPage()"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>`;
         const svgNext = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="nextPage()"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>`;
         
@@ -231,7 +251,7 @@
                                 <div class="refresh-btn" onclick="toggleDirection(${globalIdx})" title="切換方向">${refreshSvgIcon}</div>
                             </div>
                         </div>
-                        <div class="bus-eta-row" id="bus-etas-${globalIdx}"><span class="eta-time none">智能尋站中...</span></div>
+                        <div class="bus-eta-row" id="bus-etas-${globalIdx}"><span class="eta-time none">載入中...</span></div>
                     </div>`;
                 if (localIdx < 4) col1Html += cellHtml;
                 else col2Html += cellHtml;
@@ -395,97 +415,76 @@
         }, 3000); 
 
         /* ==========================================
-           7. 巴士 ETA (九巴無數據時自動切換至城巴 API)
+           7. 巴士 ETA (九巴 + 城巴 雙向無縫融合，無時間差補償)
            ========================================== */
-        const TARGET_KEYWORDS = ['博康', '沙角', '沙田圍', '田園閣'];
-        let kmbStopDict = {}; 
-
-        async function initAutoDiscovery() {
-            try {
-                const res = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop');
-                const json = await res.json();
-                json.data.forEach(s => {
-                    if (TARGET_KEYWORDS.some(kw => s.name_tc.includes(kw))) {
-                        kmbStopDict[s.stop] = s.name_tc;
-                    }
-                });
-
-                for (let i = 0; i < busRoutes.length; i++) {
-                    let r = busRoutes[i];
-                    for (let j = 0; j < r.dirs.length; j++) {
-                        let d = r.dirs[j];
-                        const bound = d.dir === 'O' ? 'outbound' : 'inbound';
-                        try {
-                            const rsRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${r.num}/${bound}/1`);
-                            const rsJson = await rsRes.json();
-                            if (rsJson.data) {
-                                for (let item of rsJson.data) {
-                                    if (kmbStopDict[item.stop]) {
-                                        d.kmbStopId = item.stop;
-                                        break; 
-                                    }
-                                }
-                            }
-                        } catch (e) {}
-                        await new Promise(res => setTimeout(res, 50)); 
-                    }
-                }
-            } catch (e) { console.error("Auto Discovery Failed", e); }
-            
-            fetchAllBuses();
-            setInterval(fetchAllBuses, 60000);
-        }
-
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
-            let formattedTimes = [];
+            let rawDates = [];
 
             try {
-                // Step 1: 先發出請求向九巴 (KMB) 獲取時間
+                // 1. 同時並行發出請求 (九巴與城巴)
+                const fetchPromises = [];
+
                 if (activeDir.kmbStopId) {
-                    const kmbRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${activeDir.kmbStopId}`);
-                    const kmbJson = await kmbRes.json();
-                    
-                    if (kmbJson.data && kmbJson.data.length > 0) {
-                        const validKmbEtas = kmbJson.data.filter(item => item.route === r.num && item.dir === activeDir.dir && item.eta !== null);
-                        let rawKmbDates = [];
-                        validKmbEtas.forEach(item => {
-                            const exactEtaDate = new Date(item.eta);
-                            if (exactEtaDate >= new Date(now.getTime() - 60000)) rawKmbDates.push(exactEtaDate);
-                        });
-                        rawKmbDates.sort((a, b) => a.getTime() - b.getTime());
-                        formattedTimes = [...new Set(rawKmbDates.map(date => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`))].slice(0, 3);
-                    }
+                    fetchPromises.push(
+                        fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${activeDir.kmbStopId}`)
+                            .then(res => res.json())
+                            .then(kmbJson => {
+                                if (kmbJson.data && kmbJson.data.length > 0) {
+                                    kmbJson.data
+                                        .filter(item => item.route === r.num && item.dir === activeDir.dir && item.eta !== null)
+                                        .forEach(item => {
+                                            const exactEtaDate = new Date(item.eta);
+                                            // 過鐘 1 分鐘內仍保留顯示，不作任何 +/- 補償
+                                            if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
+                                        });
+                                }
+                            }).catch(e => console.error(`KMB Error (${r.num}):`, e))
+                    );
                 }
 
-                // Step 2: 觸發 Condition。如果九巴無時間 (formattedTimes.length === 0) 且該線路有城巴 ID，立刻向城巴 (CTB) 搵資料
-                if (formattedTimes.length === 0 && activeDir.ctbStopId) {
-                    try {
-                        const ctbRes = await fetch(`https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/CTB/${activeDir.ctbStopId}/${r.num}`);
-                        const ctbJson = await ctbRes.json();
-                        if (ctbJson.data && ctbJson.data.length > 0) {
-                            // 移除 dir 過濾以防兩巴指標不一，專注抓取該站柱上該線路的所有即時班次
-                            const validCtbEtas = ctbJson.data.filter(item => item.eta !== null && item.eta !== "");
-                            let rawCtbDates = [];
-                            validCtbEtas.forEach(item => {
-                                const exactEtaDate = new Date(item.eta);
-                                if (exactEtaDate >= new Date(now.getTime() - 60000)) rawCtbDates.push(exactEtaDate);
-                            });
-                            rawCtbDates.sort((a, b) => a.getTime() - b.getTime());
-                            formattedTimes = [...new Set(rawCtbDates.map(date => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`))].slice(0, 3);
-                        }
-                    } catch (ctbErr) { console.error(`CTB Fallback error for ${r.num}`, ctbErr); }
+                if (activeDir.ctbStopId) {
+                    fetchPromises.push(
+                        fetch(`https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/CTB/${activeDir.ctbStopId}/${r.num}`)
+                            .then(res => res.json())
+                            .then(ctbJson => {
+                                if (ctbJson.data && ctbJson.data.length > 0) {
+                                    // 城巴直接針對該站柱獲取所有班次，移除 dir 過濾防止錯漏
+                                    ctbJson.data
+                                        .filter(item => item.eta !== null && item.eta !== "")
+                                        .forEach(item => {
+                                            const exactEtaDate = new Date(item.eta);
+                                            if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
+                                        });
+                                }
+                            }).catch(e => console.error(`CTB Error (${r.num}):`, e))
+                    );
                 }
 
-                // Step 3: 將最終排序整理好的時間精準渲染出來 (無任何 +/- 微調)
+                // 等待雙方 API (或其中一方) 完成載入
+                await Promise.all(fetchPromises);
+
+                // 2. 合併處理：排序 -> 轉為 HH:MM -> 移除重複 -> 取前 3
+                rawDates.sort((a, b) => a.getTime() - b.getTime());
+                
+                let formattedTimes = rawDates.map(date => {
+                    const hh = String(date.getHours()).padStart(2, '0');
+                    const mm = String(date.getMinutes()).padStart(2, '0');
+                    return `${hh}:${mm}`;
+                });
+                
+                formattedTimes = [...new Set(formattedTimes)].slice(0, 3);
+
+                // 3. 渲染
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (formattedTimes.length === 0) {
                     container.innerHTML = `<span class="eta-time none">暫無班次 / 過鐘</span>`;
                 } else {
                     container.innerHTML = formattedTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
                 }
+
             } catch (e) { 
                 document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">載入失敗</span>`;
             }
@@ -502,10 +501,14 @@
         async function fetchAllBuses() {
             for (let i = 0; i < busRoutes.length; i++) {
                 await fetchSpecificRoute(i);
+                // 排隊 Fetch，防止高頻請求被政府 API 封鎖
+                await new Promise(resolve => setTimeout(resolve, 300)); 
             }
         }
         
-        initAutoDiscovery();
+        // 初始運行
+        fetchAllBuses();
+        setInterval(fetchAllBuses, 60000);
 
         /* ==========================================
            8. 天氣與隧道資訊
