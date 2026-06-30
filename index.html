@@ -30,20 +30,28 @@
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
-            opacity: 0; transition: opacity 1s ease-in-out;
+            opacity: 0; transition: opacity 0.8s ease-in-out;
             pointer-events: none;
         }
         .page.active { opacity: 1; pointer-events: auto; }
 
         /* ==========================================
-           2. 頂部 Header
+           2. 頂部 Header & 播放控制鍵
            ========================================== */
         .header {
             height: 160px; display: flex; justify-content: space-between; align-items: center;
             padding: 0 40px; border-bottom: 4px solid #1c3c9e; background-color: #0A2E8E;
         }
         .header-left { display: flex; flex-direction: column; justify-content: center; }
+        .date-container { display: flex; align-items: center; gap: 30px; }
         .date-str { font-size: 65px; color: #88ccff; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+        
+        /* 播放控制按鈕 (SVG) */
+        .controls { display: flex; gap: 20px; align-items: center; margin-top: 5px; }
+        .ctrl-btn { width: 55px; height: 55px; cursor: pointer; fill: #88ccff; transition: transform 0.2s, fill 0.2s; }
+        .ctrl-btn:active { transform: scale(0.9); }
+        .ctrl-btn:hover { fill: #ffffff; }
+
         .lunar-str { font-size: 32px; color: #88ccff; margin-top: 5px; font-weight: bold; }
         .time-str { font-size: 130px; color: #88ccff; letter-spacing: 5px; margin-top: -10px; }
 
@@ -88,7 +96,7 @@
         .fd-rain { font-size: 30px; color: #88ccff; }
 
         /* ==========================================
-           4. 頁面 2 (巴士與交通)
+           4. 頁面 2+ (巴士與交通共用樣式)
            ========================================== */
         .bus-grid { 
             height: 920px; display: grid; grid-template-columns: 660px 660px 584px; 
@@ -117,20 +125,14 @@
         .traffic-row { display: flex; justify-content: space-between; font-size: 50px; color: #fff; align-items: center; }
         .traffic-time { color: #55ff55; font-weight: bold; }
         .traffic-time span { font-size: 35px; color: #aaa; margin-left: 10px; font-weight: normal; }
-
     </style>
 </head>
 <body>
 
     <div id="app-container">
         <div id="page1" class="page active">
-            <div class="header">
-                <div class="header-left">
-                    <div class="date-str" id="date-str-1">----年--月--日(-)</div>
-                    <div class="lunar-str" id="lunar-str-1">載入農曆中...</div>
-                </div>
-                <div class="header-right"><div class="time-str" id="time-str-1">--:--:--</div></div>
-            </div>
+            <div id="header-container-1"></div>
+            
             <div class="middle-row">
                 <div class="dog-carousel-container">
                     <div class="dog-layer" id="dog-layer-1" style="opacity: 1; z-index: 2;">
@@ -156,31 +158,159 @@
             <div class="forecast-row" id="forecast-row"></div>
         </div>
 
-        <div id="page2" class="page">
-            <div class="header">
-                <div class="header-left">
-                    <div class="date-str" id="date-str-2">----年--月--日(-)</div>
-                    <div class="lunar-str" id="lunar-str-2">載入農曆中...</div>
-                </div>
-                <div class="header-right"><div class="time-str" id="time-str-2">--:--:--</div></div>
-            </div>
-            <div class="bus-grid">
-                <div class="bus-col" id="bus-col-1"></div>
-                <div class="bus-col" id="bus-col-2"></div>
-                <div class="traffic-col">
-                    <div class="traffic-header">沙田區 隧道預計時間</div>
-                    <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time" id="tunnel-lion">--<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>大老山隧道</span><span class="traffic-time" id="tunnel-tates">--<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>城門隧道</span><span class="traffic-time" id="tunnel-shingmun">--<span>分鐘</span></span></div>
-                    <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time" id="tunnel-eagle">--<span>分鐘</span></span></div>
-                </div>
-            </div>
         </div>
-    </div>
 
     <script>
         /* ==========================================
-           A. 畫布自適應縮放
+           1. 總路線設定庫 (17 條路線)
+           ========================================== */
+        const busRoutes = [
+            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 24 }] },
+            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 15 }] },
+            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 4 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
+            { num: '170', currentDir: 0, dirs: [{ dest: '華富(中)', dir: 'O', seq: 3, ctbStopId: '002626' }, { dest: '沙田站', dir: 'I', seq: 32, ctbStopId: '002657' }] },
+            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 22}] },
+            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 6}, { dest: '沙田站', dir: 'I', seq: 20}] },
+            { num: '282', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', seq: 5}, { dest: '沙田市中心', dir: 'I', seq: 11}] }, 
+            { num: '284', currentDir: 0, dirs: [{ dest: '濱景花園', dir: 'O', seq: 6}, { dest: '沙田市中心', dir: 'I', seq: 13}] },
+            // 新增路線 (預設了大致站序，如有不準可自行微調)
+            { num: 'E42', currentDir: 0, dirs: [{ dest: '機場(地面運輸)', dir: 'O', seq: 3}, { dest: '博康', dir: 'I', seq: 22}] },
+            { num: '86A', currentDir: 0, dirs: [{ dest: '長沙灣(甘泉街)', dir: 'O', seq: 2}, { dest: '沙田圍', dir: 'I', seq: 15}] },
+            { num: '85A', currentDir: 0, dirs: [{ dest: '九龍城碼頭', dir: 'O', seq: 3}, { dest: '廣源', dir: 'I', seq: 18}] },
+            { num: '249X', currentDir: 0, dirs: [{ dest: '青衣站', dir: 'O', seq: 3}, { dest: '博康', dir: 'I', seq: 15}] },
+            { num: '81K', currentDir: 0, dirs: [{ dest: '新田圍', dir: 'O', seq: 5}, { dest: '穗禾苑', dir: 'I', seq: 20}] },
+            { num: '82K', currentDir: 0, dirs: [{ dest: '美林', dir: 'O', seq: 8}, { dest: '黃泥頭', dir: 'I', seq: 18}] },
+            { num: '89B', currentDir: 0, dirs: [{ dest: '觀塘(牛頭角站)', dir: 'O', seq: 3}, { dest: '沙田圍', dir: 'I', seq: 15}] },
+            // 182 為聯營路線，加入 CTB 站點 ID
+            { num: '182', currentDir: 0, dirs: [{ dest: '中環(港澳碼頭)', dir: 'O', seq: 3, ctbStopId: '002626'}, { dest: '愉翠苑', dir: 'I', seq: 30, ctbStopId: '002657'}] },
+            { num: 'A42', currentDir: 0, dirs: [{ dest: '機場(地面運輸)', dir: 'O', seq: 3}, { dest: '黃泥頭', dir: 'I', seq: 15}] }
+        ];
+
+        /* ==========================================
+           2. 動態生成網頁 (包括 Header、播放器及多頁巴士)
+           ========================================== */
+        const refreshSvgIcon = `
+            <svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>`;
+
+        // SVG 控制按鈕
+        const svgPrev = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="prevPage()"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>`;
+        const svgNext = `<svg viewBox="0 0 24 24" class="ctrl-btn" onclick="nextPage()"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>`;
+        
+        function getHeaderHtml() {
+            return `
+                <div class="header">
+                    <div class="header-left">
+                        <div class="date-container">
+                            <div class="date-str date-str-sync">----年--月--日(-)</div>
+                            <div class="controls">
+                                ${svgPrev}
+                                <svg viewBox="0 0 24 24" class="ctrl-btn" onclick="togglePlay()">
+                                    <path class="play-pause-path" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                </svg>
+                                ${svgNext}
+                            </div>
+                        </div>
+                        <div class="lunar-str lunar-str-sync">載入農曆中...</div>
+                    </div>
+                    <div class="header-right"><div class="time-str time-str-sync">--:--:--</div></div>
+                </div>
+            `;
+        }
+        
+        // 注入 Page 1 的 Header
+        document.getElementById('header-container-1').innerHTML = getHeaderHtml();
+
+        // 隧道資訊共用 HTML
+        const tunnelHtml = `
+            <div class="traffic-header">沙田區 隧道預計時間</div>
+            <div class="traffic-row"><span>獅子山隧道</span><span class="traffic-time tunnel-lion-sync">--<span>分鐘</span></span></div>
+            <div class="traffic-row"><span>大老山隧道</span><span class="traffic-time tunnel-tates-sync">--<span>分鐘</span></span></div>
+            <div class="traffic-row"><span>城門隧道</span><span class="traffic-time tunnel-shingmun-sync">--<span>分鐘</span></span></div>
+            <div class="traffic-row"><span>尖山隧道</span><span class="traffic-time tunnel-eagle-sync">--<span>分鐘</span></span></div>
+        `;
+
+        // 根據 17 條路線，動態生成 Page 2, Page 3, Page 4...
+        let pageCount = 1;
+        for (let i = 0; i < busRoutes.length; i += 8) {
+            pageCount++;
+            const chunk = busRoutes.slice(i, i + 8);
+            let col1Html = '', col2Html = '';
+
+            chunk.forEach((r, localIdx) => {
+                const globalIdx = i + localIdx;
+                const cellHtml = `
+                    <div class="bus-cell">
+                        <div class="bus-route-row">
+                            <span class="bus-num">${r.num}</span>
+                            <div class="bus-dest-container">
+                                <span class="bus-dest" id="bus-dest-text-${globalIdx}">${r.dirs[r.currentDir].dest}</span>
+                                <div class="refresh-btn" onclick="toggleDirection(${globalIdx})" title="切換方向">${refreshSvgIcon}</div>
+                            </div>
+                        </div>
+                        <div class="bus-eta-row" id="bus-etas-${globalIdx}"><span class="eta-time none">載入中...</span></div>
+                    </div>`;
+                if (localIdx < 4) col1Html += cellHtml;
+                else col2Html += cellHtml;
+            });
+
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            pageDiv.innerHTML = `
+                ${getHeaderHtml()}
+                <div class="bus-grid">
+                    <div class="bus-col">${col1Html}</div>
+                    <div class="bus-col">${col2Html}</div>
+                    <div class="traffic-col">${tunnelHtml}</div>
+                </div>
+            `;
+            document.getElementById('app-container').appendChild(pageDiv);
+        }
+
+        /* ==========================================
+           3. 播放控制器 (分頁切換系統)
+           ========================================== */
+        const allPages = document.querySelectorAll('.page');
+        let currentPageIdx = 0;
+        let isPlaying = true;
+        let pageTimer;
+
+        function showPage(idx) {
+            allPages.forEach(p => p.classList.remove('active'));
+            allPages[idx].classList.add('active');
+        }
+
+        function nextPage() {
+            currentPageIdx = (currentPageIdx + 1) % allPages.length;
+            showPage(currentPageIdx);
+            if (isPlaying) resetTimer(); // 重置計時器，避免剛按完就馬上切換
+        }
+
+        function prevPage() {
+            currentPageIdx = (currentPageIdx - 1 + allPages.length) % allPages.length;
+            showPage(currentPageIdx);
+            if (isPlaying) resetTimer();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const pathData = isPlaying ? "M6 19h4V5H6v14zm8-14v14h4V5h-4z" : "M8 5v14l11-7z"; // 暫停圖標 vs 播放圖標
+            document.querySelectorAll('.play-pause-path').forEach(p => p.setAttribute('d', pathData));
+            
+            if (isPlaying) resetTimer();
+            else clearInterval(pageTimer);
+        }
+
+        function resetTimer() {
+            clearInterval(pageTimer);
+            pageTimer = setInterval(nextPage, 15000); // 每頁停留 15 秒
+        }
+        resetTimer(); // 啟動輪播
+
+        /* ==========================================
+           4. 自適應縮放
            ========================================== */
         function resizeCanvas() {
             const ww = window.innerWidth;
@@ -193,19 +323,13 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        setInterval(() => {
-            document.getElementById('page1').classList.toggle('active');
-            document.getElementById('page2').classList.toggle('active');
-        }, 15000);
-
         /* ==========================================
-           C. 時鐘與完美農曆引擎
+           5. 時鐘與農曆 (同步所有頁面)
            ========================================== */
         function getPerfectLunarDateStr(date) {
             try {
                 const formatter = new Intl.DateTimeFormat('zh-HK-u-ca-chinese', { dateStyle: 'full' });
                 let rawStr = formatter.format(date); 
-                
                 let stemBranch = "丙午"; 
                 const sbMatch = rawStr.match(/(\w{2})年/);
                 if (sbMatch) stemBranch = sbMatch[1];
@@ -216,24 +340,14 @@
                 let monthDayStr = "五月十五";
                 const mdMatch = rawStr.match(/年(.+?)日/);
                 if (mdMatch) {
-                    monthDayStr = mdMatch[1];
-                    monthDayStr = monthDayStr
-                        .replace('M01', '正月').replace('M02', '二月').replace('M03', '三月').replace('M04', '四月')
+                    monthDayStr = mdMatch[1].replace('M01', '正月').replace('M02', '二月').replace('M03', '三月').replace('M04', '四月')
                         .replace('M05', '五月').replace('M06', '六月').replace('M07', '七月').replace('M08', '八月')
                         .replace('M09', '九月').replace('M10', '十月').replace('M11', '十一月').replace('M12', '十二月');
-                    
-                    const dayCh = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
-                                  '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
-                                  '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
-                    monthDayStr = monthDayStr.replace(/ (\d{1,2})/, (match, p1) => {
-                        return dayCh[parseInt(p1)] || match;
-                    });
+                    const dayCh = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿5','廿六','廿七','廿八','廿九','三十'];
+                    monthDayStr = monthDayStr.replace(/ (\d{1,2})/, (m, p1) => dayCh[parseInt(p1)] || m);
                 }
-
                 return `農曆 ${stemBranch} ${zodiac}年 ${monthDayStr}`;
-            } catch(e) {
-                return "農曆 丙午 馬年 五月十五"; 
-            }
+            } catch(e) { return "農曆 丙午 馬年 五月十五"; }
         }
 
         function updateClock() {
@@ -247,36 +361,30 @@
             const date = String(now.getDate()).padStart(2, '0');
             const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
             
-            document.getElementById('time-str-1').innerText = `${hh}:${mm}:${ss}`;
-            document.getElementById('time-str-2').innerText = `${hh}:${mm}:${ss}`;
-            document.getElementById('date-str-1').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
-            document.getElementById('date-str-2').innerText = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            const timeStr = `${hh}:${mm}:${ss}`;
+            const dateStr = `${year}年${month}月${date}日(${weekdays[now.getDay()]})`;
+            const lunarStr = getPerfectLunarDateStr(now);
 
-            const lunarText = getPerfectLunarDateStr(now);
-            document.getElementById('lunar-str-1').innerText = lunarText;
-            document.getElementById('lunar-str-2').innerText = lunarText;
+            // 更新畫面上所有頁面的標籤
+            document.querySelectorAll('.time-str-sync').forEach(el => el.innerText = timeStr);
+            document.querySelectorAll('.date-str-sync').forEach(el => el.innerText = dateStr);
+            document.querySelectorAll('.lunar-str-sync').forEach(el => el.innerText = lunarStr);
         }
         setInterval(updateClock, 1000);
         updateClock();
 
         /* ==========================================
-           D. 狗狗相片 3 秒極速無縫輪播
+           6. 狗狗相片 3 秒無縫輪播
            ========================================== */
         const dogUrls = [
-            "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg",
-            "https://images.dog.ceo/breeds/husky/n02110185_10047.jpg",
-            "https://images.dog.ceo/breeds/shiba/shiba-13.jpg",
-            "https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg",
-            "https://images.dog.ceo/breeds/corgi-cardigan/n02113186_1111.jpg",
-            "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg",
-            "https://images.dog.ceo/breeds/beagle/n02088364_12115.jpg",
-            "https://images.dog.ceo/breeds/pomeranian/n02112018_1090.jpg",
-            "https://images.dog.ceo/breeds/dalmatian/cooper1.jpg",
-            "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg"
+            "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg", "https://images.dog.ceo/breeds/husky/n02110185_10047.jpg",
+            "https://images.dog.ceo/breeds/shiba/shiba-13.jpg", "https://images.dog.ceo/breeds/samoyed/n02111889_110.jpg",
+            "https://images.dog.ceo/breeds/corgi-cardigan/n02113186_1111.jpg", "https://images.dog.ceo/breeds/pug/n02110958_13038.jpg",
+            "https://images.dog.ceo/breeds/beagle/n02088364_12115.jpg", "https://images.dog.ceo/breeds/pomeranian/n02112018_1090.jpg",
+            "https://images.dog.ceo/breeds/dalmatian/cooper1.jpg", "https://images.dog.ceo/breeds/retriever-labrador/n02099712_7411.jpg"
         ];
         
-        let activeLayer = 1;
-
+        let activeDogLayer = 1;
         function get4RandomDogs() {
             let selected = [];
             while(selected.length < 4) {
@@ -287,12 +395,10 @@
         }
 
         const initialDogs = get4RandomDogs();
-        for(let i=0; i<4; i++) {
-            document.getElementById(`l1-img-${i}`).src = initialDogs[i];
-        }
+        for(let i=0; i<4; i++) document.getElementById(`l1-img-${i}`).src = initialDogs[i];
 
         setInterval(() => {
-            const nextLayer = activeLayer === 1 ? 2 : 1;
+            const nextLayer = activeDogLayer === 1 ? 2 : 1;
             const newDogs = get4RandomDogs();
             let loadedCount = 0;
 
@@ -303,11 +409,9 @@
                     if(loadedCount === 4) {
                         document.getElementById(`dog-layer-${nextLayer}`).style.opacity = 1;
                         document.getElementById(`dog-layer-${nextLayer}`).style.zIndex = 2;
-                        
-                        document.getElementById(`dog-layer-${activeLayer}`).style.opacity = 0;
-                        document.getElementById(`dog-layer-${activeLayer}`).style.zIndex = 1;
-                        
-                        activeLayer = nextLayer;
+                        document.getElementById(`dog-layer-${activeDogLayer}`).style.opacity = 0;
+                        document.getElementById(`dog-layer-${activeDogLayer}`).style.zIndex = 1;
+                        activeDogLayer = nextLayer;
                     }
                 };
                 imgEl.src = newDogs[i];
@@ -315,62 +419,16 @@
         }, 3000); 
 
         /* ==========================================
-           E. 巴士 ETA (九巴 + 城巴 聯營無縫融合)
+           7. 巴士 ETA (取消 Offset，展示絕對精準時間)
            ========================================== */
-        const ETA_OFFSET_MINUTES = -2; // 維持 -2 分鐘時差補償
-
-        const busRoutes = [
-            { num: '47X', currentDir: 0, dirs: [{ dest: '葵盛(東)', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 25 }] },
-            { num: '80X', currentDir: 0, dirs: [{ dest: '觀塘碼頭', dir: 'O', seq: 4 }, { dest: '秦石', dir: 'I', seq: 16 }] },
-            { num: '287X', currentDir: 0, dirs: [{ dest: '旺角(循環)', dir: 'O', seq: 5 }, { dest: '水泉澳', dir: 'I', seq: 18 }] },
-            
-            // 170 聯營路線加入城巴 ctbStopId
-            // 若發現城巴時段數據不準，可在 https://rt.data.gov.hk 搜尋正確的 Citybus Stop ID 替換
-            { num: '170', currentDir: 0, dirs: [
-                { dest: '華富(中)', dir: 'O', seq: 3, ctbStopId: '002626' }, // 博康邨, 沙角街 (城巴)
-                { dest: '沙田站', dir: 'I', seq: 32, ctbStopId: '002657' }   // 沙角邨, 沙角街 (城巴)
-            ]},
-            
-            { num: '81C', currentDir: 0, dirs: [{ dest: '尖沙咀(東)', dir: 'O', seq: 10}, { dest: '耀安', dir: 'I', seq: 28}] },
-            { num: '89X', currentDir: 0, dirs: [{ dest: '觀塘站', dir: 'O', seq: 7}, { dest: '沙田站', dir: 'I', seq: 22}] },
-            { num: '282', currentDir: 0, dirs: [{ dest: '新城市廣場', dir: 'O', seq: 3}, { dest: '沙田市中心', dir: 'I', seq: 12}] },
-            { num: '284', currentDir: 0, dirs: [{ dest: '沙田市中心', dir: 'O', seq: 4}, { dest: '濱景花園', dir: 'I', seq: 10}] }
-        ];
-
-        const refreshSvgIcon = `
-            <svg viewBox="0 0 24 24" width="38" height="38" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <polyline points="1 20 1 14 7 14"></polyline>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-        `;
-
-        const col1 = document.getElementById('bus-col-1');
-        const col2 = document.getElementById('bus-col-2');
-        busRoutes.forEach((r, idx) => {
-            const html = `
-                <div class="bus-cell">
-                    <div class="bus-route-row">
-                        <span class="bus-num">${r.num}</span>
-                        <div class="bus-dest-container">
-                            <span class="bus-dest" id="bus-dest-text-${idx}">${r.dirs[r.currentDir].dest}</span>
-                            <div class="refresh-btn" onclick="toggleDirection(${idx})" title="切換方向">${refreshSvgIcon}</div>
-                        </div>
-                    </div>
-                    <div class="bus-eta-row" id="bus-etas-${idx}"><span class="eta-time none">載入中...</span></div>
-                </div>`;
-            if (idx < 4) col1.innerHTML += html;
-            else col2.innerHTML += html;
-        });
-
         async function fetchSpecificRoute(idx) {
             const r = busRoutes[idx];
             const activeDir = r.dirs[r.currentDir];
             const now = new Date();
-            let rawDates = []; // 儲存包含九巴及城巴的所有未處理時間對象
+            let rawDates = []; 
 
             try {
-                // 1. 抓取九巴 (KMB) 數據
+                // 九巴 / 龍運 (KMB API 支援所有 LWB 路線)
                 const kmbRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r.num}/1`);
                 const kmbJson = await kmbRes.json();
                 
@@ -379,36 +437,29 @@
                         item.dir === activeDir.dir && item.seq === activeDir.seq && item.eta !== null
                     );
                     validKmbEtas.forEach(item => {
-                        const originalTimeMs = new Date(item.eta).getTime();
-                        const adjustedEtaDate = new Date(originalTimeMs + (ETA_OFFSET_MINUTES * 60000));
-                        if (adjustedEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(adjustedEtaDate);
+                        // 【更新】：完全移除 Offset，顯示 API 提供的絕對原始時間
+                        const exactEtaDate = new Date(item.eta);
+                        if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
                     });
                 }
 
-                // 2. 抓取城巴 (CTB) 數據 (如果有設定 ctbStopId)
+                // 城巴融合 (僅限聯營路線)
                 if (activeDir.ctbStopId) {
                     try {
                         const ctbRes = await fetch(`https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/CTB/${activeDir.ctbStopId}/${r.num}`);
                         const ctbJson = await ctbRes.json();
                         
                         if (ctbJson.data && ctbJson.data.length > 0) {
-                            // 城巴的 API 通常也會在 dir 欄位返回 'O' 或 'I'
-                            const validCtbEtas = ctbJson.data.filter(item => 
-                                item.dir === activeDir.dir && item.eta !== null && item.eta !== ""
-                            );
+                            const validCtbEtas = ctbJson.data.filter(item => item.dir === activeDir.dir && item.eta !== null && item.eta !== "");
                             validCtbEtas.forEach(item => {
-                                const originalTimeMs = new Date(item.eta).getTime();
-                                const adjustedEtaDate = new Date(originalTimeMs + (ETA_OFFSET_MINUTES * 60000));
-                                if (adjustedEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(adjustedEtaDate);
+                                const exactEtaDate = new Date(item.eta);
+                                if (exactEtaDate >= new Date(now.getTime() - 60000)) rawDates.push(exactEtaDate);
                             });
                         }
-                    } catch (ctbErr) {
-                        console.error(`CTB API Error (${r.num}):`, ctbErr);
-                    }
+                    } catch (ctbErr) { console.error(`CTB Error (${r.num}):`, ctbErr); }
                 }
 
-                // 3. 合併排序、去重及格式化
-                rawDates.sort((a, b) => a.getTime() - b.getTime()); // 按時間先後排序
+                rawDates.sort((a, b) => a.getTime() - b.getTime());
                 
                 let formattedTimes = rawDates.map(date => {
                     const hh = String(date.getHours()).padStart(2, '0');
@@ -416,10 +467,8 @@
                     return `${hh}:${mm}`;
                 });
                 
-                // 去除可能重複的時間並只取前 3 班
                 formattedTimes = [...new Set(formattedTimes)].slice(0, 3);
 
-                // 4. 渲染至畫面
                 const container = document.getElementById(`bus-etas-${idx}`);
                 if (formattedTimes.length === 0) {
                     container.innerHTML = `<span class="eta-time none">暫無班次 / 過鐘</span>`;
@@ -427,7 +476,6 @@
                     container.innerHTML = formattedTimes.map(t => `<span class="eta-time">${t}</span>`).join('');
                 }
             } catch (e) { 
-                console.error(`Bus Merge API Error (${r.num}):`, e); 
                 document.getElementById(`bus-etas-${idx}`).innerHTML = `<span class="eta-time none">載入失敗</span>`;
             }
         }
@@ -443,24 +491,15 @@
         async function fetchAllBuses() {
             for (let i = 0; i < busRoutes.length; i++) {
                 await fetchSpecificRoute(i);
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await new Promise(resolve => setTimeout(resolve, 300)); // 排隊 Fetch 避免 Block IP
             }
         }
-        
         fetchAllBuses();
         setInterval(fetchAllBuses, 60000);
 
         /* ==========================================
-           F. 香港天文台實時及預報天氣
+           8. 天氣與隧道資訊 (同步寫入各個分頁)
            ========================================== */
-        function getWeatherIcon(iconId) {
-            if(iconId >= 50 && iconId <= 54) return '☀️';
-            if(iconId >= 60 && iconId <= 65) return '☁️';
-            if(iconId >= 70 && iconId <= 77) return '🌧️';
-            if(iconId >= 80) return '⛈️';
-            return '⛅';
-        }
-
         async function fetchWeather() {
             try {
                 const curRes = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
@@ -471,68 +510,49 @@
                 
                 const fndRes = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc');
                 const fndData = await fndRes.json();
-                const forecastRow = document.getElementById('forecast-row');
-                forecastRow.innerHTML = '';
-                
+                let forecastHtml = '';
                 fndData.weatherForecast.slice(0, 6).forEach(day => {
                     const dateStr = `${day.forecastDate.substring(4,6)}月${day.forecastDate.substring(6,8)}日`;
-                    const isSun = day.week === '星期日';
-                    const tempStr = `${day.forecastMintemp.value}|${day.forecastMaxtemp.value}°C`;
-                    const humStr = `${day.forecastMinrh.value}-${day.forecastMaxrh.value}%`;
-                    const rainStr = `降雨: ${day.PSR}`;
-                    
-                    forecastRow.innerHTML += `
+                    const icon = (day.ForecastIcon >= 50 && day.ForecastIcon <= 54) ? '☀️' : (day.ForecastIcon >= 80 ? '⛈️' : (day.ForecastIcon >= 70 ? '🌧️' : '⛅'));
+                    forecastHtml += `
                         <div class="forecast-day">
                             <div class="fd-date">${dateStr}</div>
-                            <div class="fd-day ${isSun ? 'sun' : ''}">${day.week}</div>
-                            <div class="fd-icon">${getWeatherIcon(day.ForecastIcon)}</div>
-                            <div class="fd-temp">${tempStr}</div>
-                            <div class="fd-hum">${humStr}</div>
-                            <div class="fd-rain">${rainStr}</div>
+                            <div class="fd-day ${day.week === '星期日' ? 'sun' : ''}">${day.week}</div>
+                            <div class="fd-icon">${icon}</div>
+                            <div class="fd-temp">${day.forecastMintemp.value}|${day.forecastMaxtemp.value}°C</div>
+                            <div class="fd-hum">${day.forecastMinrh.value}-${day.forecastMaxrh.value}%</div>
+                            <div class="fd-rain">降雨: ${day.PSR}</div>
                         </div>`;
                 });
-            } catch (e) { console.error("Weather API Error:", e); }
+                document.getElementById('forecast-row').innerHTML = forecastHtml;
+            } catch (e) { console.error(e); }
         }
-        setInterval(fetchWeather, 5 * 60 * 1000);
-        fetchWeather();
+        fetchWeather(); setInterval(fetchWeather, 300000);
 
-        /* ==========================================
-           G. 隧道預計時間 (TDAS API)
-           ========================================== */
-        async function fetchTunnelTime(startLat, startLng, endLat, endLng, elementId) {
+        async function fetchTunnelTime(startLat, startLng, endLat, endLng, classSelector) {
             try {
                 const response = await fetch('https://tdas-api.hkemobility.gov.hk/tdas/api/route', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        start: { lat: startLat, long: startLng },
-                        end: { lat: endLat, long: endLng },
-                        departIn: 0, lang: "tc", type: "ST"
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start: { lat: startLat, long: startLng }, end: { lat: endLat, long: endLng }, departIn: 0, lang: "tc", type: "ST" })
                 });
                 const data = await response.json();
                 if (data && data.eta) {
-                    const parts = data.eta.split(':');
-                    const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-                    document.getElementById(elementId).innerHTML = `${mins}<span>分鐘</span>`;
+                    const mins = parseInt(data.eta.split(':')[0], 10) * 60 + parseInt(data.eta.split(':')[1], 10);
+                    document.querySelectorAll(classSelector).forEach(el => el.innerHTML = `${mins}<span>分鐘</span>`);
                 }
-            } catch (e) {
-                document.getElementById(elementId).innerHTML = `--<span>分鐘</span>`;
-            }
+            } catch (e) { document.querySelectorAll(classSelector).forEach(el => el.innerHTML = `--<span>分鐘</span>`); }
         }
 
         async function fetchAllTunnels() {
-            await fetchTunnelTime(22.3687, 114.1866, 22.3396, 114.1764, 'tunnel-lion');
+            await fetchTunnelTime(22.3687, 114.1866, 22.3396, 114.1764, '.tunnel-lion-sync');
             await new Promise(r => setTimeout(r, 300));
-            await fetchTunnelTime(22.3820, 114.2045, 22.3364, 114.2057, 'tunnel-tates');
+            await fetchTunnelTime(22.3820, 114.2045, 22.3364, 114.2057, '.tunnel-tates-sync');
             await new Promise(r => setTimeout(r, 300));
-            await fetchTunnelTime(22.3807, 114.1751, 22.3784, 114.1311, 'tunnel-shingmun');
+            await fetchTunnelTime(22.3807, 114.1751, 22.3784, 114.1311, '.tunnel-shingmun-sync');
             await new Promise(r => setTimeout(r, 300));
-            await fetchTunnelTime(22.3698, 114.1670, 22.3360, 114.1481, 'tunnel-eagle');
+            await fetchTunnelTime(22.3698, 114.1670, 22.3360, 114.1481, '.tunnel-eagle-sync');
         }
-
-        fetchAllTunnels();
-        setInterval(fetchAllTunnels, 3 * 60 * 1000); 
+        fetchAllTunnels(); setInterval(fetchAllTunnels, 180000);
     </script>
 </body>
 </html>
